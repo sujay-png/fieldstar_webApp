@@ -113,42 +113,36 @@ class TechnicianRepository {
   }
 
   //=====================Count technician=======================
-  Future<Map<String, dynamic>> getTechnicianStats() async {
-    final technicians = await _supabase.from('technician').select('id');
-
-    final available = await _supabase
-        .from('Raise_complaint')
-        .select('technician_id')
-        .eq('tech_status', 'Pending');
-
-    final activeJobs = await _supabase
-        .from('Raise_complaint')
-        .select('technician_id')
-        .eq('tech_status', 'Assigned');
-
-    final ratings = await _supabase
-        .from('service_ratings')
-        .select('id,rating')
-        .not('rating', 'is', null);
-
-    double avgRating = 0;
-
-    if (ratings.isNotEmpty) {
-      final totalRating = ratings.fold<num>(
-        0,
-        (sum, item) => sum + ((item['rating'] as num?) ?? 0),
-      );
-
-      avgRating = totalRating / ratings.length;
-    }
-
-    return {
-      'total': technicians.length,
-      'available': available.length,
-      'activeJobs': activeJobs.length,
-      'avgRating': avgRating.toStringAsFixed(1),
-    };
+Future<Map<String, dynamic>> getTechnicianStats({String? technicianId}) async {
+  final technicians = await _supabase.from('technician').select('id');
+  final available = await _supabase.from('Raise_complaint').select('technician_id').eq('tech_status', 'Pending');
+  final activeJobs = await _supabase.from('Raise_complaint').select('technician_id').eq('tech_status', 'Assigned');
+  var query = _supabase.from('service_ratings').select('rating');
+  
+  if (technicianId != null && technicianId.isNotEmpty) {
+    query = query.eq('technician_id', technicianId);
   }
+
+  final List<dynamic> ratings = await query;
+  
+
+
+  double avgRating = 0.0;
+  if (ratings.isNotEmpty) {
+    final validRatings = ratings.where((item) => item['rating'] != null);    
+    if (validRatings.isNotEmpty) {
+      final totalSum = validRatings.fold<num>(0, (sum, item) => sum + (item['rating'] as num));
+      avgRating = totalSum / validRatings.length;
+    }
+  }
+
+  return {
+    'total': technicians.length,
+    'available': available.length,
+    'activeJobs': activeJobs.length,
+    'avgRating': avgRating.toStringAsFixed(1),
+  };
+}
   //===================Register customer==================================
 
   Future<void> registerCustomerWithAuth({
@@ -242,51 +236,57 @@ class TechnicianRepository {
 
 
 //==============================Get technician KPi box count==================================
-  Future<Map<String, dynamic>> getActiveComplaintCount(String technicianId) async {
+ Future<Map<String, dynamic>> getActiveComplaintCount(String technicianId) async {
   final today = DateTime.now();
-  final todayStr =
-      '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+  final startOfDay = DateTime(today.year, today.month, today.day).toIso8601String();
+  final endOfDay = DateTime(today.year, today.month, today.day + 1).toIso8601String();
 
   final results = await Future.wait([
     // Active jobs
-    _supabase
-        .from('Raise_complaint')
+    _supabase.from('Raise_complaint')
         .select('id')
-        .eq('technician_id', technicianId)
-        .inFilter('tech_status', ['Assigned']),
+        .eq('technician_id', technicianId) // Ensure this column name matches your DB exactly
+        .eq('tech_status', 'Assigned'),
 
-    // Jobs today from service_ratings
-    _supabase
-        .from('service_ratings')
-        .select('id')
-        .eq('technician_id', technicianId)
-        .eq('service_date', todayStr),
+    // Jobs today - Using range to handle time-stamped dates
+
+   _supabase .from('Raise_complaint')
+    .select('id')
+    .eq('technician_id', int.parse(technicianId))
+    .eq('tech_status', 'Assigned')
+    .gte('created_at', startOfDay)
+    .lt('created_at', endOfDay),
 
     // Ratings
-    _supabase
+   _supabase
         .from('service_ratings')
         .select('rating')
-        .eq('technician_id', technicianId)
+        .eq('technician_id', 'TECH-$technicianId')
         .not('rating', 'is', null),
+  
+      
   ]);
 
-  final activeJobs = (results[0] as List).length;
+    final activeJobs = (results[0] as List).length;
   final jobsToday = (results[1] as List).length;
-
   final ratings = results[2] as List;
+
   final avgRating = ratings.isEmpty
       ? 0.0
       : ratings.fold<double>(
-              0, (sum, r) => sum + ((r['rating'] as num?)?.toDouble() ?? 0)) /
+            0,
+            (sum, r) => sum + ((r['rating'] as num?)?.toDouble() ?? 0),
+          ) /
           ratings.length;
 
   return {
     'activeJobs': activeJobs,
     'jobsToday': jobsToday,
-    'rating': double.parse(avgRating.toStringAsFixed(1)),
+    'rating': avgRating, 
     'totalRatings': ratings.length,
   };
 }
+
 Future<double> getratings(String technicianId) async {
   final response = await _supabase
       .from('service_ratings')
@@ -333,14 +333,17 @@ Future<double> getratings(String technicianId) async {
     }).toList();
 
     // ── Completed today ───────────────────────────────────────────────────────
-    final completedTodayList = all.where((c) {
-      if (c['complaint_status'] != 'pending') return false;
-      final date = DateTime.tryParse(
-        c['created_at']?.toString() ?? '',
-      )?.toLocal();
-      if (date == null) return false;
-      return !date.isBefore(todayStart);
-    }).toList();
+   final completedTodayList = all.where((c) {
+  if (c['complaint_status'] != 'Completed') return false;
+
+  final date = DateTime.tryParse(
+    c['created_at']?.toString() ?? '',
+  )?.toLocal();
+
+  if (date == null) return false;
+
+  return !date.isBefore(todayStart);
+}).toList();
 
     final completedYesterdayList = all.where((c) {
       if (c['complaint_status'] != 'Completed') return false;

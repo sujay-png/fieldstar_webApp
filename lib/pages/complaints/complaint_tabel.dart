@@ -4,24 +4,33 @@ import 'package:field_star/model/complaint_model.dart';
 import 'package:field_star/pages/complaints/assign_tech.dart';
 import 'package:field_star/repository/technician_repository.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 enum Priority { high, medium, low }
+
 enum ComplaintStatus { pending, assigned, inProgress, completed }
 
 Priority _mapPriority(String? val) {
   switch (val?.toLowerCase()) {
-    case 'high': return Priority.high;
-    case 'medium': return Priority.medium;
-    default: return Priority.low;
+    case 'high':
+      return Priority.high;
+    case 'medium':
+      return Priority.medium;
+    default:
+      return Priority.low;
   }
 }
 
 ComplaintStatus _mapStatus(String? val) {
   switch (val?.toLowerCase()) {
-    case 'assigned': return ComplaintStatus.assigned;
-    case 'in progress': return ComplaintStatus.inProgress;
-    case 'completed': return ComplaintStatus.completed;
-    default: return ComplaintStatus.pending;
+    case 'assigned':
+      return ComplaintStatus.assigned;
+    case 'in progress':
+      return ComplaintStatus.inProgress;
+    case 'completed':
+      return ComplaintStatus.completed;
+    default:
+      return ComplaintStatus.pending;
   }
 }
 
@@ -36,7 +45,7 @@ class ComplaintsTable extends StatefulWidget {
 class _ComplaintsTableState extends State<ComplaintsTable> {
   final _repo = TechnicianRepository();
   late Future<List<ComplaintModel>> _complaintsFuture;
-
+  final ScrollController _horizontalscroll = ScrollController();
   @override
   void initState() {
     super.initState();
@@ -44,18 +53,20 @@ class _ComplaintsTableState extends State<ComplaintsTable> {
   }
 
   void _refresh() => setState(() {
-        _complaintsFuture = _repo.fetchComplaints();
-      });
-//========================search bar function=============================================
+    _complaintsFuture = _repo.fetchComplaints();
+  });
+  //========================search bar function=============================================
   List<ComplaintModel> _applySearch(List<ComplaintModel> all) {
     if (widget.searchQuery.isEmpty) return all;
     final q = widget.searchQuery.toLowerCase();
     return all
-        .where((c) =>
-            c.ticketId.toLowerCase().contains(q) ||
-            (c.categoryName?.toLowerCase().contains(q) ?? false) ||
-            (c.serviceRequired?.toLowerCase().contains(q) ?? false) ||
-            (c.problem?.toLowerCase().contains(q) ?? false))
+        .where(
+          (c) =>
+              c.ticketId.toLowerCase().contains(q) ||
+              (c.categoryName?.toLowerCase().contains(q) ?? false) ||
+              (c.serviceRequired?.toLowerCase().contains(q) ?? false) ||
+              (c.problem?.toLowerCase().contains(q) ?? false),
+        )
         .toList();
   }
 
@@ -83,9 +94,18 @@ class _ComplaintsTableState extends State<ComplaintsTable> {
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
-      child: Text(label,
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: textColor)),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: textColor,
+        ),
+      ),
     );
   }
 
@@ -118,9 +138,18 @@ class _ComplaintsTableState extends State<ComplaintsTable> {
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
-      child: Text(label,
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: textColor)),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: textColor,
+        ),
+      ),
     );
   }
 
@@ -143,7 +172,9 @@ class _ComplaintsTableState extends State<ComplaintsTable> {
                   if (!mounted) return;
                   _refresh();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('${tech.name} assigned successfully')),
+                    SnackBar(
+                      content: Text('${tech.name} assigned successfully'),
+                    ),
                   );
                 } catch (e) {
                   if (!mounted) return;
@@ -158,13 +189,20 @@ class _ComplaintsTableState extends State<ComplaintsTable> {
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.person_add_alt_1_outlined, size: 16, color: Color(0xFFE8680A)),
+            Icon(
+              Icons.person_add_alt_1_outlined,
+              size: 16,
+              color: Color(0xFFE8680A),
+            ),
             SizedBox(width: 6),
-            Text('Assign',
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFFE8680A))),
+            Text(
+              'Assign',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFFE8680A),
+              ),
+            ),
           ],
         ),
       );
@@ -180,9 +218,14 @@ class _ComplaintsTableState extends State<ComplaintsTable> {
         CircleAvatar(
           radius: 14,
           backgroundColor: const Color(0xFF3B82F6),
-          child: Text(initials,
-              style: const TextStyle(
-                  fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white)),
+          child: Text(
+            initials,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
         ),
         const SizedBox(width: 8),
         Flexible(
@@ -215,17 +258,26 @@ class _ComplaintsTableState extends State<ComplaintsTable> {
         Text(
           c.ticketId.isNotEmpty ? c.ticketId : '#${c.id}',
           style: const TextStyle(
-              fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF0F172A),
+          ),
         ),
         const SizedBox(height: 3),
         Row(
           children: [
-            const Icon(Icons.access_time_rounded, size: 11, color: Color(0xFF94A3B8)),
+            const Icon(
+              Icons.access_time_rounded,
+              size: 11,
+              color: Color(0xFF94A3B8),
+            ),
             const SizedBox(width: 3),
             Flexible(
-              child: Text(formattedDate,
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-                  overflow: TextOverflow.ellipsis),
+              child: Text(
+                formattedDate,
+                style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
@@ -242,7 +294,10 @@ class _ComplaintsTableState extends State<ComplaintsTable> {
         Text(
           c.categoryName ?? '—',
           style: const TextStyle(
-              fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF0F172A)),
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF0F172A),
+          ),
         ),
         const SizedBox(height: 3),
         Text(
@@ -263,22 +318,27 @@ class _ComplaintsTableState extends State<ComplaintsTable> {
         Text(
           c.problem ?? '—',
           style: const TextStyle(
-              fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF0F172A)),
-                softWrap: true,
-          
-        
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF0F172A),
+          ),
+          softWrap: true,
         ),
-        
-        
+
         if (c.date != null) ...[
           const SizedBox(height: 3),
           Row(
             children: [
-              const Icon(Icons.calendar_today_outlined,
-                  size: 11, color: Color(0xFF94A3B8)),
+              const Icon(
+                Icons.calendar_today_outlined,
+                size: 11,
+                color: Color(0xFF94A3B8),
+              ),
               const SizedBox(width: 3),
-              Text(c.date!,
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+              Text(
+                c.date!,
+                style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+              ),
             ],
           ),
         ],
@@ -289,14 +349,16 @@ class _ComplaintsTableState extends State<ComplaintsTable> {
   // ── BUILD ────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-//=============================Fetch complaints===========================================
+    //=============================Fetch complaints===========================================
     return FutureBuilder<List<ComplaintModel>>(
       future: _complaintsFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
             child: Padding(
-                padding: EdgeInsets.all(40), child: CircularProgressIndicator()),
+              padding: EdgeInsets.all(40),
+              child: CircularProgressIndicator(),
+            ),
           );
         }
 
@@ -307,12 +369,19 @@ class _ComplaintsTableState extends State<ComplaintsTable> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.error_outline, color: Color(0xFFE05252), size: 32),
+                  const Icon(
+                    Icons.error_outline,
+                    color: Color(0xFFE05252),
+                    size: 32,
+                  ),
                   const SizedBox(height: 12),
                   Text(
                     'Failed to load complaints\n${snapshot.error}',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF94A3B8),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextButton(onPressed: _refresh, child: const Text('Retry')),
@@ -324,76 +393,88 @@ class _ComplaintsTableState extends State<ComplaintsTable> {
 
         final rows = _applySearch(snapshot.data ?? []);
 
-        return Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFEEEEEE)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (rows.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Center(
-                    child: Text('No complaints found.',
-                        style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14)),
-                  ),
-                )
-              else
-                SizedBox(
-                  width: double.infinity,
-                  child: Theme(
-                    data: Theme.of(context).copyWith(
-                      dividerColor: const Color(0xFFEEEEEE),
-                    ),
-//=========================Datatabel=======================================================
-                    child: DataTable(
-                      columnSpacing: 16,
-                      horizontalMargin: 20,
-                      headingRowHeight: 42,
-                      dataRowMinHeight: 60,  
-                      dataRowMaxHeight: 64,
-                      dividerThickness: 1,
-                      headingRowColor: WidgetStateProperty.all(
-                        const Color(0xFFFAFAFA),
+        return Scrollbar(
+          controller: _horizontalscroll,
+          thumbVisibility: true,
+          child: SingleChildScrollView(
+            controller: _horizontalscroll,
+            scrollDirection: Axis.horizontal,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFEEEEEE)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (rows.isEmpty)
+                    const SizedBox(
+                      width: 400,
+                      child: Padding(
+                        padding: EdgeInsets.all(32),
+                        child: Center(
+                          child: Text(
+                            'No complaints found.',
+                            style: TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
                       ),
-                      headingTextStyle: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF94A3B8),
-                        letterSpacing: 0.5,
+                    )
+                  else
+                    Theme(
+                      data: Theme.of(
+                        context,
+                      ).copyWith(dividerColor: const Color(0xFFEEEEEE)),
+                      // =========================Datatabel=======================================================
+                      child: DataTable(
+                        columnSpacing: 16,
+                        horizontalMargin: 20,
+                        headingRowHeight: 42,
+                        dataRowMinHeight: 60,
+                        dataRowMaxHeight: 64,
+                        dividerThickness: 1,
+                        headingRowColor: WidgetStateProperty.all(
+                          const Color(0xFFFAFAFA),
+                        ),
+                        headingTextStyle: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF94A3B8),
+                          letterSpacing: 0.5,
+                        ),
+                        // ── Columns ──────────────────────────────────────────
+                        columns: const [
+                          DataColumn(label: Text('TICKET')),
+                          DataColumn(label: Text('CATEGORY')),
+                          DataColumn(label: Text('PROBLEM')),
+                          DataColumn(label: Text('PRIORITY')),
+                          DataColumn(label: Text('STATUS')),
+                          DataColumn(label: Text('TECHNICIAN')),
+                        ],
+                        // ── Rows ─────────────────────────────────────────────
+                        rows: rows.map((c) {
+                          final priority = _mapPriority(c.priorityLevel);
+                          final status = _mapStatus(c.techstatus);
+                          return DataRow(
+                            cells: [
+                              DataCell(_ticketCell(c)),
+                              DataCell(_categoryCell(c)),
+                              DataCell(_problemCell(c)),
+                              DataCell(_priorityBadge(priority)),
+                              DataCell(_statusBadge(status)),
+                              DataCell(_technicianCell(c, status)),
+                            ],
+                          );
+                        }).toList(),
                       ),
-                      // ── Columns ──────────────────────────────────────────
-                      columns: const [
-                        DataColumn(label: Text('TICKET')),
-                        DataColumn(label: Text('CATEGORY')),
-                        DataColumn(label: Text('PROBLEM')),
-                        DataColumn(label: Text('PRIORITY')),
-                        DataColumn(label: Text('STATUS')),
-                        DataColumn(label: Text('TECHNICIAN')),
-                      ],
-                      // ── Rows ─────────────────────────────────────────────
-                      rows: rows.map((c) {
-                        final priority = _mapPriority(c.priorityLevel);
-                        final status = _mapStatus(c.techstatus);
-                        return DataRow(
-                          cells: [
-                            DataCell(_ticketCell(c)),
-                            DataCell(_categoryCell(c)),
-                            DataCell(_problemCell(c)),
-                            DataCell(_priorityBadge(priority)),
-                            DataCell(_statusBadge(status)),
-                            DataCell(_technicianCell(c, status)),
-                          ],
-                        );
-                      }).toList(),
                     ),
-                  ),
-                ),
-            ],
+                ],
+              ),
+            ),
           ),
         );
       },

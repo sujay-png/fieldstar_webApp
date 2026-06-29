@@ -1,5 +1,5 @@
 import 'package:field_star/component/tech_card.dart';
-import 'package:field_star/component/technician_card.dart';
+import 'package:field_star/pages/Technician/technician_card.dart';
 import 'package:field_star/model/tech_model.dart';
 import 'package:field_star/navigation/primaryscaffold.dart';
 import 'package:field_star/repository/technician_repository.dart';
@@ -138,7 +138,7 @@ class _TechnicianState extends State<Technician> {
                       Expanded(
                         child: TechCard(
                           label: 'Avg Rating',
-                          value: '${data['avgRating']}',
+                          value: (data['avgRating'] ?? '0.0').toString(),
                           icon: Icons.star_rounded,
                           iconBackgroundColor: const Color(0xFFFFFBEB),
                           iconColor: const Color(0xFFF59E0B),
@@ -176,67 +176,71 @@ class _TechnicianState extends State<Technician> {
 
                         final technicians = snapshot.data!;
 
-                        return GridView.builder(
-                          shrinkWrap: true,
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                childAspectRatio: 2.2,
-                                crossAxisSpacing: 10,
-                                mainAxisSpacing: 5,
-                              ),
-                          itemCount: technicians.length,
-                          itemBuilder: (context, index) {
-                            final tech = technicians[index];
-                            //========================get active complaint count================================
-                            if (tech.id == null || tech.id!.isEmpty) {
-                              return const SizedBox();
-                            }
+                        return Expanded(
+                          child: GridView.builder(
+                            shrinkWrap: true,
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  childAspectRatio: 2.3,
+                                  crossAxisSpacing: 10,
+                                  mainAxisSpacing: 6,
+                                ),
+                            itemCount: technicians.length,
+                            itemBuilder: (context, index) {
+                              final tech = technicians[index];
+                              //========================get active complaint count================================
+                              if (tech.id == null || tech.id!.isEmpty) {
+                                return const SizedBox();
+                              }
 
-                            return FutureBuilder<Map<String, dynamic>>(
-                              future: _repository.getActiveComplaintCount(
-                                tech.id!,
-                              ),
-                              builder: (context, complaintSnapshot) {
-                                final activeJobs =
-                                    (complaintSnapshot.data?['activeJobs']
-                                            as num?)
-                                        ?.toInt() ??
-                                    0;
-                                final jobsToday =
-                                    (complaintSnapshot.data?['jobsToday']
-                                            as num?)
-                                        ?.toInt() ??
-                                    0;
-                                final rating =
-                                    (complaintSnapshot.data?['rating'] as num?)
-                                        ?.toDouble() ??
-                                    0.0;
-                                final isBusy = activeJobs > 0;
+                              return FutureBuilder<Map<String, dynamic>>(
+                                future: _repository.getActiveComplaintCount(
+                                  tech.id!,
+                                ),
+                                builder: (context, complaintSnapshot) {
+                                  final activeJobs =
+                                      (complaintSnapshot.data?['activeJobs']
+                                              as num?)
+                                          ?.toInt() ??
+                                      0;
+                                  final jobsToday =
+                                      (complaintSnapshot.data?['jobsToday']
+                                              as num?)
+                                          ?.toInt() ??
+                                      0;
+                                  final rating =
+                                      (complaintSnapshot.data?['rating']
+                                              as num?)
+                                          ?.toDouble() ??
+                                      0.0;
+                                  final isBusy = activeJobs > 0;
 
-                                return TechnicianCard(
-                                  technician: tech,
-                                  name: tech.fullName,
-                                  id: tech.techId,
-                                  techid: tech.techId,
-                                  phone: tech.phone,
-                                  location: tech.location,
-                                  activeJobs: activeJobs.toString(),
-                                  jobsToday: jobsToday.toString(),
-                                  status: isBusy ? "Busy" : "Available",
-                                  showAssignButton: !isBusy,
-                                  rating: rating.toStringAsFixed(1),
-                                  completionRate: 1.0,
-                                  specializations: tech.specialization.isNotEmpty 
-    ? [tech.specialization] 
-    : ['N/A'], 
-                                  onViewProfile: () {},
-                                  onAssignJob: () {},
-                                  onDelete: _refresh,
-                                );
-                              },
-                            );
-                          },
+                                  return TechnicianCard(
+                                    technician: tech,
+                                    name: tech.fullName,
+                                    id: tech.techId,
+                                    techid: tech.techId,
+                                    phone: tech.phone,
+                                    location: tech.location,
+                                    activeJobs: activeJobs.toString(),
+                                    jobsToday: jobsToday.toString(),
+                                    status: isBusy ? "Busy" : "Available",
+                                    showAssignButton: !isBusy,
+                                    rating: rating.toStringAsFixed(1),
+                                    completionRate: 1.0,
+                                    specializations:
+                                        tech.specialization.isNotEmpty
+                                        ? [tech.specialization]
+                                        : ['N/A'],
+                                    onViewProfile: () {},
+                                    onAssignJob: () {},
+                                    onDelete: _refresh,
+                                  );
+                                },
+                              );
+                            },
+                          ),
                         );
                       },
                     ),
@@ -466,19 +470,19 @@ class _TechnicianState extends State<Technician> {
   }
 
   String getInitials(String name) {
-  if (name.trim().isEmpty) {
-    return '?';
+    if (name.trim().isEmpty) {
+      return '?';
+    }
+
+    final words = name.trim().split(' ').where((e) => e.isNotEmpty).toList();
+    if (words.isEmpty) return '?';
+
+    if (words.length >= 2) {
+      return '${words.first[0]}${words.last[0]}'.toUpperCase();
+    }
+
+    return words.first.length >= 2
+        ? words.first.substring(0, 2).toUpperCase()
+        : words.first.toUpperCase();
   }
-
-  final words = name.trim().split(' ').where((e) => e.isNotEmpty).toList();
-  if (words.isEmpty) return '?'; 
-
-  if (words.length >= 2) {
-    return '${words.first[0]}${words.last[0]}'.toUpperCase();
-  }
-
-  return words.first.length >= 2
-      ? words.first.substring(0, 2).toUpperCase()
-      : words.first.toUpperCase();
-}
 }

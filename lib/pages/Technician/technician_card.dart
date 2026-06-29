@@ -11,7 +11,7 @@ class TechnicianCard extends StatefulWidget {
   final String activeJobs;
   final String jobsToday;
   final String rating;
-  final double completionRate; // 0.0 to 1.0
+  final double completionRate; 
   final List<String> specializations;
   final VoidCallback onViewProfile;
   final VoidCallback onAssignJob;
@@ -146,7 +146,7 @@ class _TechnicianCardState extends State<TechnicianCard> {
                 children: [
                   _buildMetric(widget.activeJobs, "Active Jobs"),
                   _buildMetric(widget.jobsToday, "Today"),
-                  _buildMetric("★ ${widget.rating}", "Rating"),
+                  _buildMetric("${widget.rating}", "Rating"),
                 ],
               ),
               const SizedBox(height: 20),
@@ -172,15 +172,17 @@ class _TechnicianCardState extends State<TechnicianCard> {
               Row(
                 children: [
                   Expanded(
+                  
                     child: OutlinedButton(
                       onPressed: () => _showEditProfile(context),
-
+                    
                       child: const Text("Edit Profile"),
                     ),
                   ),
                   const SizedBox(width: 12),
                   if (widget.showAssignButton)
                     Expanded(
+                    
                       child: ElevatedButton(
                         onPressed: widget.onAssignJob,
                         style: ElevatedButton.styleFrom(
@@ -345,7 +347,6 @@ class _TechnicianCardState extends State<TechnicianCard> {
                       final updatetech = TechModel(
                         fullName: nameController.text.trim(),
                         id: widget.technician.id,
-
                         techId: widget.technician.techId,
                         phone: phoneController.text.trim(),
                         location: locationController.text.trim(),
