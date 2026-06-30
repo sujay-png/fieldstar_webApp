@@ -1,5 +1,3 @@
-// lib/pages/complaints/complaints_table.dart
-
 import 'package:field_star/model/complaint_model.dart';
 import 'package:field_star/pages/complaints/assign_tech.dart';
 import 'package:field_star/repository/technician_repository.dart';
@@ -154,20 +152,32 @@ class _ComplaintsTableState extends State<ComplaintsTable> {
   }
 
   // ── TECHNICIAN CELL ──────────────────────────────────────────────────────────
- Widget _technicianCell(ComplaintModel c, ComplaintStatus status) {
-    if (status == ComplaintStatus.pending) {
+  Widget _technicianCell(ComplaintModel c, ComplaintStatus status) {
+    if (status == ComplaintStatus.pending || c.technicians.isEmpty) {
       return GestureDetector(
         onTap: () {
           showDialog(
             context: context,
             builder: (_) => AssignTechnicianDialog(
               ticketId: c.ticketId,
-              onAssign: (techList) async { // ← List<TechnicianOption>
-                for (final tech in techList) { // ← loop over each
+              onAssign: (techList) async {
+                for (final tech in techList) {
                   try {
+                    final parsedId = int.tryParse(tech.id);
+                    if (parsedId == null) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Invalid technician ID for ${tech.name}',
+                          ),
+                        ),
+                      );
+                      continue;
+                    }
                     await _repo.assignTechnician(
                       ticketId: c.ticketId.isNotEmpty ? c.ticketId : c.id,
-                      technicianId: int.parse(tech.techId),
+                      technicianId: parsedId,
                       technicianName: tech.name,
                     );
                     if (!mounted) return;
@@ -179,12 +189,16 @@ class _ComplaintsTableState extends State<ComplaintsTable> {
                   } catch (e) {
                     if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed to assign ${tech.name}: $e')),
+                      SnackBar(
+                        content: Text('Failed to assign ${tech.name}: $e'),
+                      ),
                     );
                   }
                 }
                 if (!mounted) return;
-                _refresh(); // ← refresh once after all assignments
+                // ❌ remove this line — don't pop here
+                // Navigator.of(context).pop();
+                _refresh();
               },
             ),
           );
@@ -211,9 +225,11 @@ class _ComplaintsTableState extends State<ComplaintsTable> {
       );
     }
 
-    final initials = (c.technicianName != null && c.technicianName!.length >= 2)
-        ? c.technicianName!.substring(0, 2).toUpperCase()
+    final first = c.technicians.first;
+    final initials = first.name.length >= 2
+        ? first.name.substring(0, 2).toUpperCase()
         : '?';
+    final extra = c.technicians.length - 1;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -233,7 +249,7 @@ class _ComplaintsTableState extends State<ComplaintsTable> {
         const SizedBox(width: 8),
         Flexible(
           child: Text(
-            c.technicianName ?? '—',
+            extra > 0 ? '${first.name} +$extra' : first.name,
             style: const TextStyle(fontSize: 13, color: Color(0xFF334155)),
             overflow: TextOverflow.ellipsis,
           ),
@@ -241,6 +257,7 @@ class _ComplaintsTableState extends State<ComplaintsTable> {
       ],
     );
   }
+
   // ── TICKET CELL (ID + timestamp) ─────────────────────────────────────────────
   Widget _ticketCell(ComplaintModel c) {
     String formattedDate = c.createdAt;

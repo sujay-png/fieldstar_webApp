@@ -5,20 +5,18 @@ import 'package:field_star/pages/Technician/technician.dart';
 import 'package:field_star/pages/auth/login.dart';
 import 'package:field_star/pages/billing&payments/billing&payments.dart';
 import 'package:field_star/pages/complaints/complaints.dart';
+import 'package:field_star/pages/complaints/otp_tickectId_screenPage.dart';
 import 'package:field_star/pages/customer/customer.dart';
 import 'package:field_star/pages/overview/overview.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
- final SupabaseClient _supabase = Supabase.instance.client;
+final SupabaseClient _supabase = Supabase.instance.client;
 
 final GoRouter appRouter = GoRouter(
- 
   initialLocation: '/login',
-  refreshListenable: GoRouterRefreshStream(
-    _supabase.auth.onAuthStateChange,
-  ),
+  refreshListenable: GoRouterRefreshStream(_supabase.auth.onAuthStateChange),
   redirect: (context, state) {
     final session = _supabase.auth.currentSession;
     final loggedIn = session != null;
@@ -29,64 +27,61 @@ final GoRouter appRouter = GoRouter(
     return null;
   },
   routes: [
-    GoRoute(
-      path: '/login',
-      builder: (context, state) => const MobileLoging(),
-    ),
+    GoRoute(path: '/login', builder: (context, state) => const MobileLoging()),
 
     ShellRoute(
-      builder: (context, state, child) => ShellPage(
-        key: state.pageKey,
-        child: child,
-      ),
+      builder: (context, state, child) =>
+          ShellPage(key: state.pageKey, child: child),
       routes: [
-    GoRoute(
-  path: '/Dashboard',
-  builder: (context, state) {
-    // ✅ Handle both int and String extras safely
-    final extra = state.extra;
-    
-    String technicianId = '';
-    
-    if (extra is int) {
-      technicianId = extra.toString();
-    } else if (extra is String) {
-      technicianId = extra;
-    } else if (extra != null) {
-      technicianId = extra.toString();
-    }
+        GoRoute(
+          path: '/Dashboard',
+          builder: (context, state) {
+            // ✅ Handle both int and String extras safely
+            final extra = state.extra;
 
-    return Overview(
-      technicianId: technicianId,
-    );
-  },
-),
-          GoRoute(
+            String technicianId = '';
+
+            if (extra is int) {
+              technicianId = extra.toString();
+            } else if (extra is String) {
+              technicianId = extra;
+            } else if (extra != null) {
+              technicianId = extra.toString();
+            }
+
+            return Overview(technicianId: technicianId);
+          },
+        ),
+        GoRoute(
           path: '/Technicians',
-           builder: (context, state) => const Technician(),
-          
+          builder: (context, state) => const Technician(),
         ),
-          GoRoute(
+        GoRoute(
           path: '/Complaints',
-           builder: (context, state) => const Complaints(),
-          
+          builder: (context, state) => const Complaints(),
         ),
-          GoRoute(
+        GoRoute(
           path: '/Customers',
-           builder: (context, state) => const Customer(),
-          
+          builder: (context, state) => const Customer(),
         ),
-          GoRoute(
+        GoRoute(
           path: '/Billing',
-           builder: (context, state) => const Billingpayments(),
-          
+          builder: (context, state) => const Billingpayments(),
         ),
-         GoRoute(
+        GoRoute(
           path: '/Analytics',
-           builder: (context, state) => const Analytics(),
-          
+          builder: (context, state) => const Analytics(),
         ),
-
+        GoRoute(
+          path: '/otpscreen',
+          builder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>?;
+            return OtpTickectidScreenpage(
+              ticketId: extra?['tickectid'] as String? ?? 'N/A',
+              otp: extra?['otp'] as String? ?? 'N/A',
+            );
+          },
+        ),
         // GoRoute(
         //   path: '/enquiries/:businessId',
         //   builder: (context, state) {

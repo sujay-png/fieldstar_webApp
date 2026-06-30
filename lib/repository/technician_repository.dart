@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:field_star/model/complaint_model.dart';
 import 'package:field_star/model/customer_model.dart';
 import 'package:field_star/model/tech_model.dart';
@@ -59,59 +60,48 @@ class TechnicianRepository {
   //========================Asign technician==============================
   // technician_repository.dart
   Future<void> assignTechnician({
-    required String ticketId,
-    required int technicianId,
-    required String technicianName,
-  }) async {
-  
-    try {
-      var response = await _supabase
-          .from('Raise_complaint')
-          .update({
-            'technician_id': technicianId,
-            'technician_name': technicianName,
-            'tech_status': 'Assigned',
-          })
-          .eq('tickectid', ticketId)
-          .select();
+  required String ticketId,
+  required int technicianId,
+  required String technicianName,
+}) async {
+  try {
+    final complaint = await _supabase
+        .from('Raise_complaint')
+        .select('id')
+        .eq('tickectid', ticketId)
+        .maybeSingle();
 
-      if (response.isEmpty) {
-       
-        response = await _supabase
-            .from('Raise_complaint')
-            .update({
-              'technician_id': technicianId,
-              'technician_name': technicianName,
-              'tech_status': 'Pending',
-            })
-            .eq('id', int.tryParse(ticketId) ?? 0)
-            .select();
-      }
+    final complaintId = complaint != null
+        ? complaint['id'] as int
+        : int.tryParse(ticketId) ?? 0;
 
-     
-    } catch (e) {
-     
-      rethrow;
-    }
+    await _supabase.from('complaint_technicians').upsert({
+      'complaint_id': complaintId,
+      'technician_id': technicianId,
+      'technician_name': technicianName,
+    }, onConflict: 'complaint_id,technician_id');
+
+    await _supabase
+        .from('Raise_complaint')
+        .update({'tech_status': 'Assigned'})
+        .eq('id', complaintId);
+  } catch (e) {
+    rethrow;
   }
+}
 
   //=======================Fetch complaint========================
 
-  Future<List<ComplaintModel>> fetchComplaints() async {
-    try {
-      final response = await _supabase
-          .from('Raise_complaint')
-          .select()
-          .order('created_at', ascending: false);
+Future<List<ComplaintModel>> fetchComplaints() async {
+  final data = await _supabase
+      .from('Raise_complaint')
+      .select('*, complaint_technicians(technician_id, technician_name)')
+      .order('created_at', ascending: false);
 
-      return (response as List)
-          .map((json) => ComplaintModel.fromJson(json))
-          .toList();
-    } catch (e) {
-      rethrow;
-    }
-  }
-
+  return (data as List)
+      .map((e) => ComplaintModel.fromJson(e as Map<String, dynamic>))
+      .toList();
+}
   //=====================Count technician=======================
 Future<Map<String, dynamic>> getTechnicianStats({String? technicianId}) async {
   final technicians = await _supabase.from('technician').select('id');
@@ -123,10 +113,7 @@ Future<Map<String, dynamic>> getTechnicianStats({String? technicianId}) async {
     query = query.eq('technician_id', technicianId);
   }
 
-  final List<dynamic> ratings = await query;
-  
-
-
+  final List<dynamic> ratings = await query; 
   double avgRating = 0.0;
   if (ratings.isNotEmpty) {
     final validRatings = ratings.where((item) => item['rating'] != null);    
@@ -135,7 +122,6 @@ Future<Map<String, dynamic>> getTechnicianStats({String? technicianId}) async {
       avgRating = totalSum / validRatings.length;
     }
   }
-
   return {
     'total': technicians.length,
     'available': available.length,
@@ -306,96 +292,68 @@ Future<double> getratings(String technicianId) async {
 }
 
   //=================================Get dashboard count==============================================
-  Future<Map<String, dynamic>> fetchDashboardStats(String technicianId) async {
-    final today = DateTime.now();
-    final todayStart = DateTime(today.year, today.month, today.day);
-    final yesterday = todayStart.subtract(const Duration(days: 1));
+Future<Map<String, dynamic>> fetchDashboardStats(String technicianId) async {
+  final todayStart = DateTime.now().toLocal();
+  final todayOnly = DateTime(todayStart.year, todayStart.month, todayStart.day);
+  final yesterdayOnly = todayOnly.subtract(const Duration(days: 1));
 
-    // Single fetch — no login, so we work with ALL complaints
-    final raw = await _supabase
-        .from('Raise_complaint')
-        .select('id, complaint_status, tech_status, created_at, technician_id');
+  final raw = await _supabase
+      .from('Raise_complaint')
+      .select('id, complaint_status, created_at, technician_id');
 
-    final all = raw as List;
+  final all = (raw as List).cast<Map<String, dynamic>>();
 
-    // ── Active (pending) ──────────────────────────────────────────────────────
-    final activeTodayList = all
-        .where((c) => c['complaint_status'] == 'pending')
-        .toList();
+  int activeToday = 0, activeYesterday = 0;
+  int completedToday = 0, completedYesterday = 0;
+  int totalPending = 0, totalCompleted = 0;
+  final activeTechIds = <dynamic>{};
+  final allTechIds = <dynamic>{};
 
-    final activeYesterdayList = all.where((c) {
-      if (c['complaint_status'] != 'pending') return false;
-      final date = DateTime.tryParse(
-        c['created_at']?.toString() ?? '',
-      )?.toLocal();
-      if (date == null) return false;
-      return date.isAfter(yesterday) && date.isBefore(todayStart);
-    }).toList();
+  for (final c in all) {
+    final status = c['complaint_status'];
+    final techId = c['technician_id'];
+    final date = DateTime.tryParse(c['created_at']?.toString() ?? '')?.toLocal();
+    final isToday = date != null && !date.isBefore(todayOnly);
+    final isYesterday = date != null &&
+        date.isAfter(yesterdayOnly) &&
+        date.isBefore(todayOnly);
 
-    // ── Completed today ───────────────────────────────────────────────────────
-   final completedTodayList = all.where((c) {
-  if (c['complaint_status'] != 'Completed') return false;
-
-  final date = DateTime.tryParse(
-    c['created_at']?.toString() ?? '',
-  )?.toLocal();
-
-  if (date == null) return false;
-
-  return !date.isBefore(todayStart);
-}).toList();
-
-    final completedYesterdayList = all.where((c) {
-      if (c['complaint_status'] != 'Completed') return false;
-      final date = DateTime.tryParse(
-        c['created_at']?.toString() ?? '',
-      )?.toLocal();
-      if (date == null) return false;
-      return date.isAfter(yesterday) && date.isBefore(todayStart);
-    }).toList();
-
-    // ── Technician counts ─────────────────────────────────────────────────────
-    final activeTechnicianIds = all
-        .where((c) => c['complaint_status'] == 'pending')
-        .map((c) => c['technician_id'])
-        .where((id) => id != null)
-        .toSet();
-
-    final allTechnicianIds = all
-        .map((c) => c['technician_id'])
-        .where((id) => id != null)
-        .toSet();
-
-    final offlineTechnicianIds = allTechnicianIds.difference(
-      activeTechnicianIds,
-    );
-
-    // ── Trends ────────────────────────────────────────────────────────────────
-    double complaintTrend = 0;
-    if (activeYesterdayList.isNotEmpty) {
-      complaintTrend =
-          ((activeTodayList.length - activeYesterdayList.length) /
-              activeYesterdayList.length) *
-          100;
+    if (status == 'pending') {
+      totalPending++;
+      activeToday++;
+      if (isYesterday) activeYesterday++;
+      if (techId != null) activeTechIds.add(techId);
     }
 
-    double completedTrend = 0;
-    if (completedYesterdayList.isNotEmpty) {
-      completedTrend =
-          ((completedTodayList.length - completedYesterdayList.length) /
-              completedYesterdayList.length) *
-          100;
+    if (status == 'Completed') {
+      totalCompleted++;
+      if (isToday) completedToday++;
+      if (isYesterday) completedYesterday++;
     }
 
-    return {
-      'activeComplaints': activeTodayList.length,
-      'completedToday': completedTodayList.length,
-      'activeTechnicians': activeTechnicianIds.length,
-      'offlineTechnicians': offlineTechnicianIds.length,
-      'complaintTrend': complaintTrend,
-      'completedTrend': completedTrend,
-    };
+    if (techId != null) allTechIds.add(techId);
   }
+
+  final offlineTechIds = allTechIds.difference(activeTechIds);
+
+  return {
+    'activeComplaints': activeToday,
+    'completedToday': completedToday,
+    'pendingComplaints': totalPending,
+    'completedComplaints': totalCompleted,
+    'activeTechnicians': activeTechIds.length,
+    'offlineTechnicians': offlineTechIds.length,
+    'complaintTrend': _trend(activeToday, activeYesterday),
+    'completedTrend': _trend(completedToday, completedYesterday),
+  };
+}
+
+double _trend(int todayCount, int yesterdayCount) {
+  if (yesterdayCount == 0) return 0;
+  return ((todayCount - yesterdayCount) / yesterdayCount) * 100;
+}
+
+
 //=======================save technician to the auth and technician tabel============================================
   Future<void> registerTechnicianWithAuth({
     required String fullName,
@@ -476,4 +434,36 @@ Future<Map<String, dynamic>> fetchCustomerStats() async {
     'distinctEquipmentCount': distinctEquipmentTypes.length,
   };
 }
+
+//=================================Save Complaint from webapp====================================
+Future<void> savecomplaints({
+  required String categoryName,
+  required String problem,
+  required String priorityLevel,
+  required String ticketId,
+  String? serviceRequired,
+  required String servicetype,
+  required String otp,
+  bool isJobCard = false,
+bool isFieldService = false,
+
+})async{
+ 
+
+  await _supabase.from('Raise_complaint').insert({
+    'Category_name': categoryName,
+    'service_required': serviceRequired,
+    'problem': problem,
+    'priority_level': priorityLevel,
+    'tickectid': ticketId,
+    'otp': otp,
+    'complaint_status': 'pending',
+    'tech_status': 'Pending',
+    'Service_type':servicetype,
+      'is_job_card': isJobCard,
+    'is_field_service': isFieldService,
+
+  });
 }
+}
+

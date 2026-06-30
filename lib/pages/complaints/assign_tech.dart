@@ -1,4 +1,3 @@
-import 'package:field_star/model/complaint_model.dart';
 import 'package:field_star/model/tech_model.dart';
 import 'package:field_star/repository/technician_repository.dart';
 import 'package:flutter/material.dart';
@@ -41,7 +40,6 @@ class AssignTechnicianDialog extends StatefulWidget {
 }
 
 class _AssignTechnicianDialogState extends State<AssignTechnicianDialog> {
-  // ← changed: Set instead of single nullable
   final Set<String> _selectedIds = {};
   final Map<String, TechnicianOption> _selectedOptions = {};
 
@@ -158,7 +156,10 @@ class _AssignTechnicianDialogState extends State<AssignTechnicianDialog> {
                   controller: _searchController,
                   onChanged: (value) =>
                       setState(() => _searchQuery = value.toLowerCase().trim()),
-                  style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF0F172A),
+                  ),
                   decoration: const InputDecoration(
                     hintText: 'Search by name or tech ID...',
                     hintStyle: TextStyle(
@@ -257,12 +258,13 @@ class _AssignTechnicianDialogState extends State<AssignTechnicianDialog> {
                                 _selectedOptions.values.toList(),
                               );
                               if (!mounted) return;
-                              setState(() => _isAssigning = false);
+                              Navigator.of(context).pop();
                             },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFE8680A),
-                        disabledBackgroundColor:
-                            const Color(0xFFE8680A).withValues(alpha: 0.4),
+                        disabledBackgroundColor: const Color(
+                          0xFFE8680A,
+                        ).withValues(alpha: 0.4),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         elevation: 0,
                         shape: RoundedRectangleBorder(
@@ -301,7 +303,7 @@ class _AssignTechnicianDialogState extends State<AssignTechnicianDialog> {
   }
 
   Widget _buildTechnicianTile(TechnicianOption tech) {
-    final isSelected = _selectedIds.contains(tech.id); 
+    final isSelected = _selectedIds.contains(tech.id);
 
     return GestureDetector(
       onTap: () => _toggleSelection(tech),
@@ -312,7 +314,9 @@ class _AssignTechnicianDialogState extends State<AssignTechnicianDialog> {
           color: isSelected ? const Color(0xFFFFF4EC) : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? const Color(0xFFE8680A) : const Color(0xFFE2E8F0),
+            color: isSelected
+                ? const Color(0xFFE8680A)
+                : const Color(0xFFE2E8F0),
             width: isSelected ? 1.5 : 1,
           ),
         ),

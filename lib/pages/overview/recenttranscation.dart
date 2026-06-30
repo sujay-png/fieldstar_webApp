@@ -58,8 +58,8 @@ class _RecentComplaintsTableState extends State<RecentComplaintsTable> {
   }
 
   void _refresh() => setState(() {
-        _complaintsFuture = _repo.fetchComplaints();
-      });
+    _complaintsFuture = _repo.fetchComplaints();
+  });
 
   List<ComplaintModel> _applySearch(List<ComplaintModel> all) {
     var result = all;
@@ -90,10 +90,18 @@ class _RecentComplaintsTableState extends State<RecentComplaintsTable> {
 
   // ── Filter chip config ────────────────────────────────────────
   static const _filterOptions = [
-    (label: 'Pending',     status: ComplaintStatus.pending,    color: Color(0xFFB8860B), bg: Color(0xFFFFF3CD)),
-    (label: 'Assigned',    status: ComplaintStatus.assigned,   color: Color(0xFF6666CC), bg: Color(0xFFE8E8FF)),
-    (label: 'In Progress', status: ComplaintStatus.inProgress, color: Color(0xFF3399CC), bg: Color(0xFFE0F0FF)),
-    (label: 'Completed',   status: ComplaintStatus.completed,  color: Color(0xFF2E9E5B), bg: Color(0xFFD4F5E2)),
+    (
+      label: 'Pending',
+      status: ComplaintStatus.pending,
+      color: Color(0xFFB8860B),
+      bg: Color(0xFFFFF3CD),
+    ),
+    (
+      label: 'Completed',
+      status: ComplaintStatus.completed,
+      color: Color(0xFF2E9E5B),
+      bg: Color(0xFFD4F5E2),
+    ),
   ];
 
   Widget _buildFilterChips() {
@@ -113,10 +121,13 @@ class _RecentComplaintsTableState extends State<RecentComplaintsTable> {
               }),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 30,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
-                  color: isActive ? opt.bg : Colors.white,
-                  borderRadius: BorderRadius.circular(20),
+                  color: isActive ? opt.bg : Colors.orange.withOpacity(0.8),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: isActive ? opt.color : const Color(0xFFE2E8F0),
                     width: isActive ? 1.5 : 1,
@@ -134,7 +145,7 @@ class _RecentComplaintsTableState extends State<RecentComplaintsTable> {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        color: isActive ? opt.color : const Color(0xFF64748B),
+                        color: isActive ? opt.color : Colors.white,
                       ),
                     ),
                   ],
@@ -249,12 +260,19 @@ class _RecentComplaintsTableState extends State<RecentComplaintsTable> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.error_outline, color: Color(0xFFE05252), size: 32),
+                  const Icon(
+                    Icons.error_outline,
+                    color: Color(0xFFE05252),
+                    size: 32,
+                  ),
                   const SizedBox(height: 12),
                   Text(
                     'Failed to load complaints\n${snapshot.error}',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF94A3B8),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextButton(onPressed: _refresh, child: const Text('Retry')),
@@ -313,6 +331,7 @@ class _RecentComplaintsTableState extends State<RecentComplaintsTable> {
 
               // ── Filter chips ──────────────────────────────────
               _buildFilterChips(),
+              const SizedBox(height: 15),
 
               // ── DataTable ─────────────────────────────────────
               if (rows.isEmpty)
@@ -329,9 +348,9 @@ class _RecentComplaintsTableState extends State<RecentComplaintsTable> {
                 SizedBox(
                   width: double.infinity,
                   child: Theme(
-                    data: Theme.of(context).copyWith(
-                      dividerColor: const Color(0xFFEEEEEE),
-                    ),
+                    data: Theme.of(
+                      context,
+                    ).copyWith(dividerColor: const Color(0xFFEEEEEE)),
                     child: DataTable(
                       showCheckboxColumn: false,
                       columnSpacing: 16,
@@ -365,7 +384,9 @@ class _RecentComplaintsTableState extends State<RecentComplaintsTable> {
                         final status = _mapStatus(c.complaintstatus);
                         return DataRow(
                           onSelectChanged: (selected) {
-                            if (selected != null) _showcomplaintform(context, c);
+                            if (selected != null) {
+                              _showcomplaintform(context, c);
+                            }
                           },
                           cells: [
                             DataCell(
@@ -379,10 +400,14 @@ class _RecentComplaintsTableState extends State<RecentComplaintsTable> {
                               ),
                             ),
                             DataCell(
-                              Text(c.categoryName ?? '-', overflow: TextOverflow.ellipsis),
+                              Text(
+                                c.categoryName ?? '-',
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                             DataCell(
-                              Expanded(
+                              SizedBox(
+                                width: 160,
                                 child: Text(
                                   c.serviceRequired ?? c.problem ?? '-',
                                   overflow: TextOverflow.ellipsis,
@@ -415,7 +440,9 @@ class _RecentComplaintsTableState extends State<RecentComplaintsTable> {
             width: 600,
             child: Dialog(
               backgroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Form(
@@ -433,7 +460,11 @@ class _RecentComplaintsTableState extends State<RecentComplaintsTable> {
                               color: const Color(0xFFEFF6FF),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(Icons.info, size: 18, color: Color(0xFF3B82F6)),
+                            child: const Icon(
+                              Icons.info,
+                              size: 18,
+                              color: Color(0xFF3B82F6),
+                            ),
                           ),
                           const SizedBox(width: 12),
                           const Text(
@@ -446,7 +477,11 @@ class _RecentComplaintsTableState extends State<RecentComplaintsTable> {
                           ),
                           const Spacer(),
                           IconButton(
-                            icon: const Icon(Icons.close, size: 18, color: Color(0xFF94A3B8)),
+                            icon: const Icon(
+                              Icons.close,
+                              size: 18,
+                              color: Color(0xFF94A3B8),
+                            ),
                             onPressed: () => Navigator.pop(ctx),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
@@ -456,17 +491,43 @@ class _RecentComplaintsTableState extends State<RecentComplaintsTable> {
                       const SizedBox(height: 20),
                       _editField('Ticket ID:-', c.ticketId, Icons.numbers),
                       const SizedBox(height: 14),
-                      _editField('Item Name:-', c.categoryName ?? 'N/A', Icons.devices_other_sharp),
+                      _editField(
+                        'Item Name:-',
+                        c.categoryName ?? 'N/A',
+                        Icons.devices_other_sharp,
+                      ),
                       const SizedBox(height: 14),
-                      _editField('Service Required:-', c.serviceRequired ?? 'N/A', Icons.business_outlined),
+                      _editField(
+                        'Service Required:-',
+                        c.serviceRequired ?? 'N/A',
+                        Icons.business_outlined,
+                      ),
                       const SizedBox(height: 14),
-                      _editField('Problem:-', c.problem ?? 'N/A', Icons.report_problem_outlined),
+                      _editField(
+                        'Problem:-',
+                        c.problem ?? 'N/A',
+                        Icons.report_problem_outlined,
+                      ),
                       const SizedBox(height: 14),
-                      _editField('Priority Level:-', c.priorityLevel ?? 'N/A', Icons.flag_outlined),
+                      _editField(
+                        'Priority Level:-',
+                        c.priorityLevel ?? 'N/A',
+                        Icons.flag_outlined,
+                      ),
                       const SizedBox(height: 14),
-                      _editField('Status:-', c.complaintstatus ?? 'N/A', Icons.info_outline),
+                      _editField(
+                        'Status:-',
+                        c.complaintstatus ?? 'N/A',
+                        Icons.info_outline,
+                      ),
                       const SizedBox(height: 14),
-                      _editField('Tech Assigned:-', c.technicianName ?? 'N/A', Icons.person_outline),
+                      _editField(
+                        'Tech Assigned:-',
+                        c.technicians.isNotEmpty
+                            ? c.technicians.map((t) => t.name).join(', ')
+                            : 'N/A',
+                        Icons.person_outline,
+                      ),
                     ],
                   ),
                 ),
@@ -479,35 +540,35 @@ class _RecentComplaintsTableState extends State<RecentComplaintsTable> {
   }
 
   Widget _editField(String label, String value, IconData icon) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
         children: [
-          Row(
-            children: [
-              Icon(icon, size: 16, color: const Color(0xFF94A3B8)),
-              const SizedBox(width: 12),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF475569),
-                ),
-              ),
-              const SizedBox(width: 15),
-              Expanded(
-                child: Text(
-                  value,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF0F172A),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
+          Icon(icon, size: 16, color: const Color(0xFF94A3B8)),
+          const SizedBox(width: 12),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF475569),
+            ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(width: 15),
+          Expanded(
+            child: Text(
+              value,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF0F172A),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
         ],
-      );
+      ),
+      const SizedBox(height: 6),
+    ],
+  );
 }
