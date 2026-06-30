@@ -1,8 +1,8 @@
+import 'package:field_star/model/complaint_model.dart';
 import 'package:field_star/model/tech_model.dart';
 import 'package:field_star/repository/technician_repository.dart';
 import 'package:flutter/material.dart';
 
-//==========================Technicain option class===========================================
 class TechnicianOption {
   final String initials;
   final String id;
@@ -27,7 +27,8 @@ class TechnicianOption {
 
 class AssignTechnicianDialog extends StatefulWidget {
   final String ticketId;
-  final Future<void> Function(TechnicianOption selected) onAssign;
+  // ← changed: now passes a List instead of a single item
+  final Future<void> Function(List<TechnicianOption> selected) onAssign;
 
   const AssignTechnicianDialog({
     super.key,
@@ -40,15 +41,44 @@ class AssignTechnicianDialog extends StatefulWidget {
 }
 
 class _AssignTechnicianDialogState extends State<AssignTechnicianDialog> {
-  TechnicianOption? _selected;
+  // ← changed: Set instead of single nullable
+  final Set<String> _selectedIds = {};
+  final Map<String, TechnicianOption> _selectedOptions = {};
+
   late Future<List<TechModel>> _techFuture;
   final TechnicianRepository _repo = TechnicianRepository();
   bool _isAssigning = false;
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _techFuture = _repo.fetchTechnicians();
+  }
+
+  List<TechModel> _applySearch(List<TechModel> all) {
+    if (_searchQuery.isEmpty) return all;
+    final q = _searchQuery.toLowerCase();
+    return all
+        .where(
+          (c) =>
+              c.fullName.toLowerCase().contains(q) ||
+              c.techId.toLowerCase().contains(q),
+        )
+        .toList();
+  }
+
+  void _toggleSelection(TechnicianOption option) {
+    setState(() {
+      if (_selectedIds.contains(option.id)) {
+        _selectedIds.remove(option.id);
+        _selectedOptions.remove(option.id);
+      } else {
+        _selectedIds.add(option.id);
+        _selectedOptions[option.id] = option;
+      }
+    });
   }
 
   @override
@@ -59,15 +89,15 @@ class _AssignTechnicianDialogState extends State<AssignTechnicianDialog> {
       insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 60),
       child: SizedBox(
         width: 400,
-       
-        height: 500,
+        height: 520,
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // ── Header ──────────────────────────────────────────
               const Text(
-                'Assign Technician',
+                'Assign Technicians',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
@@ -76,11 +106,79 @@ class _AssignTechnicianDialogState extends State<AssignTechnicianDialog> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Select a technician for ${widget.ticketId}',
+                'Select one or more technicians for ${widget.ticketId}',
                 style: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
               ),
-              const SizedBox(height: 20),
-//==========================Fetch technician======================================
+              const SizedBox(height: 12),
+
+              // ── Selected chips row ───────────────────────────────
+              if (_selectedIds.isNotEmpty) ...[
+                SizedBox(
+                  height: 32,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _selectedOptions.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 6),
+                    itemBuilder: (context, index) {
+                      final option = _selectedOptions.values.elementAt(index);
+                      return Chip(
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: const Color(0xFFFFF4EC),
+                        side: const BorderSide(color: Color(0xFFE8680A)),
+                        label: Text(
+                          option.name.split(' ').first,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFFE8680A),
+                          ),
+                        ),
+                        deleteIcon: const Icon(
+                          Icons.close,
+                          size: 14,
+                          color: Color(0xFFE8680A),
+                        ),
+                        onDeleted: () => _toggleSelection(option),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
+
+              // ── Search box ───────────────────────────────────────
+              Container(
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (value) =>
+                      setState(() => _searchQuery = value.toLowerCase().trim()),
+                  style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
+                  decoration: const InputDecoration(
+                    hintText: 'Search by name or tech ID...',
+                    hintStyle: TextStyle(
+                      color: Color(0xFF94A3B8),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search_rounded,
+                      color: Color(0xFF94A3B8),
+                      size: 20,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(vertical: 10),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // ── Technician list ──────────────────────────────────
               Expanded(
                 child: FutureBuilder<List<TechModel>>(
                   future: _techFuture,
@@ -92,13 +190,23 @@ class _AssignTechnicianDialogState extends State<AssignTechnicianDialog> {
                       return Text("Error: ${snapshot.error}");
                     }
 
-                    final techModels = snapshot.data ?? [];
+                    final rows = _applySearch(snapshot.data ?? []);
+
+                    if (rows.isEmpty) {
+                      return const Center(
+                        child: Text(
+                          'No technicians found',
+                          style: TextStyle(color: Color(0xFF94A3B8)),
+                        ),
+                      );
+                    }
+
                     return ListView.builder(
-                      itemCount: techModels.length,
+                      itemCount: rows.length,
                       itemBuilder: (context, index) {
-                        final tech = techModels[index];
+                        final tech = rows[index];
                         final option = TechnicianOption(
-                    initials: getInitials(tech.fullName),
+                          initials: getInitials(tech.fullName),
                           avatarColor: Colors.blue,
                           name: tech.fullName,
                           techId: tech.techId,
@@ -114,7 +222,8 @@ class _AssignTechnicianDialogState extends State<AssignTechnicianDialog> {
                 ),
               ),
               const SizedBox(height: 8),
-//=========================Cancel button=====================================
+
+              // ── Action buttons ───────────────────────────────────
               Row(
                 children: [
                   Expanded(
@@ -138,23 +247,22 @@ class _AssignTechnicianDialogState extends State<AssignTechnicianDialog> {
                     ),
                   ),
                   const SizedBox(width: 12),
-//=================Assign technician to paticular customer=================================
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _selected == null || _isAssigning
+                      onPressed: _selectedIds.isEmpty || _isAssigning
                           ? null
                           : () async {
                               setState(() => _isAssigning = true);
-                              await widget.onAssign(_selected!);
+                              await widget.onAssign(
+                                _selectedOptions.values.toList(),
+                              );
                               if (!mounted) return;
                               setState(() => _isAssigning = false);
-                              
                             },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFE8680A),
-                        disabledBackgroundColor: const Color(
-                          0xFFE8680A,
-                        ).withValues(alpha: 0.4),
+                        disabledBackgroundColor:
+                            const Color(0xFFE8680A).withValues(alpha: 0.4),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         elevation: 0,
                         shape: RoundedRectangleBorder(
@@ -170,9 +278,12 @@ class _AssignTechnicianDialogState extends State<AssignTechnicianDialog> {
                                 color: Colors.white,
                               ),
                             )
-                          : const Text(
-                              'Assign',
-                              style: TextStyle(
+                          : Text(
+                              // ← shows count when >1 selected
+                              _selectedIds.length > 1
+                                  ? 'Assign (${_selectedIds.length})'
+                                  : 'Assign',
+                              style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                                 color: Colors.white,
@@ -189,13 +300,11 @@ class _AssignTechnicianDialogState extends State<AssignTechnicianDialog> {
     );
   }
 
-//=========================this list all the availabel technician===========================================
   Widget _buildTechnicianTile(TechnicianOption tech) {
-    final isSelected =
-        _selected?.id == tech.id; 
+    final isSelected = _selectedIds.contains(tech.id); 
 
     return GestureDetector(
-      onTap: () => setState(() => _selected = tech),
+      onTap: () => _toggleSelection(tech),
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -203,9 +312,7 @@ class _AssignTechnicianDialogState extends State<AssignTechnicianDialog> {
           color: isSelected ? const Color(0xFFFFF4EC) : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected
-                ? const Color(0xFFE8680A)
-                : const Color(0xFFE2E8F0),
+            color: isSelected ? const Color(0xFFE8680A) : const Color(0xFFE2E8F0),
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -238,26 +345,30 @@ class _AssignTechnicianDialogState extends State<AssignTechnicianDialog> {
                 ],
               ),
             ),
+            // ← checkmark badge replaces the implicit "highlighted = selected" cue
+            if (isSelected)
+              Container(
+                width: 22,
+                height: 22,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE8680A),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check, size: 14, color: Colors.white),
+              ),
           ],
         ),
       ),
     );
   }
 
-  //===========================getInitials===========================
- String getInitials(String name) {
-  final cleanName = name.trim();
-
-  if (cleanName.isEmpty) return '?';
-
-  final words = cleanName.split(' ');
-
-  if (words.length >= 2) {
-    return '${words[0][0]}${words[1][0]}'.toUpperCase();
+  String getInitials(String name) {
+    final cleanName = name.trim();
+    if (cleanName.isEmpty) return '?';
+    final words = cleanName.split(' ');
+    if (words.length >= 2) return '${words[0][0]}${words[1][0]}'.toUpperCase();
+    return cleanName.length >= 2
+        ? cleanName.substring(0, 2).toUpperCase()
+        : cleanName[0].toUpperCase();
   }
-
-  return cleanName.length >= 2
-      ? cleanName.substring(0, 2).toUpperCase()
-      : cleanName[0].toUpperCase();
-}
 }

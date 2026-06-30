@@ -154,7 +154,7 @@ class _ComplaintsTableState extends State<ComplaintsTable> {
   }
 
   // ── TECHNICIAN CELL ──────────────────────────────────────────────────────────
-  Widget _technicianCell(ComplaintModel c, ComplaintStatus status) {
+ Widget _technicianCell(ComplaintModel c, ComplaintStatus status) {
     if (status == ComplaintStatus.pending) {
       return GestureDetector(
         onTap: () {
@@ -162,26 +162,29 @@ class _ComplaintsTableState extends State<ComplaintsTable> {
             context: context,
             builder: (_) => AssignTechnicianDialog(
               ticketId: c.ticketId,
-              onAssign: (tech) async {
-                try {
-                  await _repo.assignTechnician(
-                    ticketId: c.ticketId.isNotEmpty ? c.ticketId : c.id,
-                    technicianId: int.parse(tech.id),
-                    technicianName: tech.name,
-                  );
-                  if (!mounted) return;
-                  _refresh();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('${tech.name} assigned successfully'),
-                    ),
-                  );
-                } catch (e) {
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed to assign: $e')),
-                  );
+              onAssign: (techList) async { // ← List<TechnicianOption>
+                for (final tech in techList) { // ← loop over each
+                  try {
+                    await _repo.assignTechnician(
+                      ticketId: c.ticketId.isNotEmpty ? c.ticketId : c.id,
+                      technicianId: int.parse(tech.techId),
+                      technicianName: tech.name,
+                    );
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('${tech.name} assigned successfully'),
+                      ),
+                    );
+                  } catch (e) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to assign ${tech.name}: $e')),
+                    );
+                  }
                 }
+                if (!mounted) return;
+                _refresh(); // ← refresh once after all assignments
               },
             ),
           );
@@ -238,7 +241,6 @@ class _ComplaintsTableState extends State<ComplaintsTable> {
       ],
     );
   }
-
   // ── TICKET CELL (ID + timestamp) ─────────────────────────────────────────────
   Widget _ticketCell(ComplaintModel c) {
     String formattedDate = c.createdAt;
