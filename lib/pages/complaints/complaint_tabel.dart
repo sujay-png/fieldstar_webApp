@@ -41,33 +41,68 @@ class ComplaintsTable extends StatefulWidget {
 }
 
 class _ComplaintsTableState extends State<ComplaintsTable> {
+
   final _repo = TechnicianRepository();
   late Future<List<ComplaintModel>> _complaintsFuture;
   final ScrollController _horizontalscroll = ScrollController();
+  String? expandedTicketId;
+
+  @override
+  void dispose() {
+    _horizontalscroll.dispose();
+    super.dispose();
+  }
+
+  final int _pageSize = 10;
+  int _currentPage = 0;
+
   @override
   void initState() {
+    _loadPage();
     super.initState();
-    _complaintsFuture = _repo.fetchComplaints();
+   
   }
-
+@override
+void didUpdateWidget(covariant ComplaintsTable oldWidget) {
+  super.didUpdateWidget(oldWidget);
+  if (oldWidget.searchQuery != widget.searchQuery) {
+    setState(() {
+      _currentPage = 0; 
+      _loadPage();
+    });
+  }
+}
   void _refresh() => setState(() {
-    _complaintsFuture = _repo.fetchComplaints();
+    _complaintsFuture = _repo.fetchComplaints(
+      page: _currentPage,
+      pageSize: _pageSize,
+       searchQuery: widget.searchQuery,
+    );
   });
-  //========================search bar function=============================================
-  List<ComplaintModel> _applySearch(List<ComplaintModel> all) {
-    if (widget.searchQuery.isEmpty) return all;
-    final q = widget.searchQuery.toLowerCase();
-    return all
-        .where(
-          (c) =>
-              c.ticketId.toLowerCase().contains(q) ||
-              (c.categoryName?.toLowerCase().contains(q) ?? false) ||
-              (c.serviceRequired?.toLowerCase().contains(q) ?? false) ||
-              (c.problem?.toLowerCase().contains(q) ?? false),
-        )
-        .toList();
+
+ void _loadPage() {
+  _complaintsFuture = _repo.fetchComplaints(
+    page: _currentPage,
+    pageSize: _pageSize,
+    searchQuery: widget.searchQuery,
+  );
+}
+
+  void _nextPage() {
+    setState(() {
+      _currentPage++;
+      _loadPage();
+    });
   }
 
+  void _previousPage() {
+    if (_currentPage == 0) return;
+
+    setState(() {
+      _currentPage--;
+      _loadPage();
+    });
+  }
   // ── PRIORITY BADGE ───────────────────────────────────────────────────────────
   Widget _priorityBadge(Priority priority) {
     late String label;
@@ -196,8 +231,6 @@ class _ComplaintsTableState extends State<ComplaintsTable> {
                   }
                 }
                 if (!mounted) return;
-                // ❌ remove this line — don't pop here
-                // Navigator.of(context).pop();
                 _refresh();
               },
             ),
@@ -365,7 +398,6 @@ class _ComplaintsTableState extends State<ComplaintsTable> {
     );
   }
 
-  // ── BUILD ────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     //=============================Fetch complaints===========================================
@@ -410,88 +442,126 @@ class _ComplaintsTableState extends State<ComplaintsTable> {
           );
         }
 
-        final rows = _applySearch(snapshot.data ?? []);
+     final rows = snapshot.data ?? [];
 
         return Scrollbar(
           controller: _horizontalscroll,
           thumbVisibility: true,
-          child: SingleChildScrollView(
-            controller: _horizontalscroll,
-            scrollDirection: Axis.horizontal,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFEEEEEE)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (rows.isEmpty)
-                    const SizedBox(
-                      width: 400,
-                      child: Padding(
-                        padding: EdgeInsets.all(32),
-                        child: Center(
-                          child: Text(
-                            'No complaints found.',
-                            style: TextStyle(
-                              color: Color(0xFF94A3B8),
-                              fontSize: 14,
+          child: SizedBox(
+            width: double.infinity,
+            child: SingleChildScrollView(
+              controller: _horizontalscroll,
+              scrollDirection: Axis.horizontal,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFEEEEEE)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (rows.isEmpty)
+                      const SizedBox(
+                        width: 400,
+                        child: Padding(
+                          padding: EdgeInsets.all(32),
+                          child: Center(
+                            child: Text(
+                              'No complaints found.',
+                              style: TextStyle(
+                                color: Color(0xFF94A3B8),
+                                fontSize: 14,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    )
-                  else
-                    Theme(
-                      data: Theme.of(
-                        context,
-                      ).copyWith(dividerColor: const Color(0xFFEEEEEE)),
-                      // =========================Datatabel=======================================================
-                      child: DataTable(
-                        columnSpacing: 16,
-                        horizontalMargin: 20,
-                        headingRowHeight: 42,
-                        dataRowMinHeight: 60,
-                        dataRowMaxHeight: 64,
-                        dividerThickness: 1,
-                        headingRowColor: WidgetStateProperty.all(
-                          const Color(0xFFFAFAFA),
-                        ),
-                        headingTextStyle: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF94A3B8),
-                          letterSpacing: 0.5,
-                        ),
-                        // ── Columns ──────────────────────────────────────────
-                        columns: const [
-                          DataColumn(label: Text('TICKET')),
-                          DataColumn(label: Text('CATEGORY')),
-                          DataColumn(label: Text('PROBLEM')),
-                          DataColumn(label: Text('PRIORITY')),
-                          DataColumn(label: Text('STATUS')),
-                          DataColumn(label: Text('TECHNICIAN')),
-                        ],
-                        // ── Rows ─────────────────────────────────────────────
-                        rows: rows.map((c) {
-                          final priority = _mapPriority(c.priorityLevel);
-                          final status = _mapStatus(c.techstatus);
-                          return DataRow(
-                            cells: [
-                              DataCell(_ticketCell(c)),
-                              DataCell(_categoryCell(c)),
-                              DataCell(_problemCell(c)),
-                              DataCell(_priorityBadge(priority)),
-                              DataCell(_statusBadge(status)),
-                              DataCell(_technicianCell(c, status)),
+                      )
+                    else
+                      Theme(
+                        data: Theme.of(
+                          context,
+                        ).copyWith(dividerColor: const Color(0xFFEEEEEE)),
+                        // =========================Datatabel=======================================================
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minWidth: MediaQuery.of(context).size.width,
+                          ),
+                          child: DataTable(
+                            columnSpacing: 16,
+                            horizontalMargin: 20,
+                            headingRowHeight: 42,
+                            dataRowMinHeight: 60,
+                            dataRowMaxHeight: 64,
+                            dividerThickness: 1,
+                            headingRowColor: WidgetStateProperty.all(
+                              const Color(0xFFFAFAFA),
+                            ),
+                            headingTextStyle: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF94A3B8),
+                              letterSpacing: 0.5,
+                            ),
+                            // ── Columns ──────────────────────────────────────────
+                            columns: const [
+                              DataColumn(label: Text('TICKET')),
+                              DataColumn(label: Text('CATEGORY')),
+                              DataColumn(label: Text('PROBLEM')),
+                              DataColumn(label: Text('PRIORITY')),
+                              DataColumn(label: Text('STATUS')),
+                              DataColumn(label: Text('TECHNICIAN')),
                             ],
-                          );
-                        }).toList(),
+                            // ── Rows ─────────────────────────────────────────────
+                            rows: rows.map((c) {
+                              final priority = _mapPriority(c.priorityLevel);
+                              final status = _mapStatus(c.techstatus);
+                              return DataRow(
+                                cells: [
+                                  DataCell(_ticketCell(c)),
+                                  DataCell(_categoryCell(c)),
+                                  DataCell(_problemCell(c)),
+                                  DataCell(_priorityBadge(priority)),
+                                  DataCell(_statusBadge(status)),
+                                  DataCell(_technicianCell(c, status)),
+                                ],
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Text(
+                            'Page ${_currentPage + 1}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+
+                          OutlinedButton(
+                            onPressed: _currentPage == 0 ? null : _previousPage,
+                            child: const Text('Previous'),
+                          ),
+
+                          const SizedBox(width: 8),
+
+                          OutlinedButton(
+                            onPressed: rows.length < _pageSize
+                                ? null
+                                : _nextPage,
+                            child: const Text('Next'),
+                          ),
+                        ],
                       ),
                     ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

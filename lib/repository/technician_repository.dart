@@ -91,43 +91,51 @@ class TechnicianRepository {
 }
 
   //=======================Fetch complaint========================
+Future<List<ComplaintModel>> fetchComplaints({
+  int page = 0,
+  int pageSize = 10,
+  String? searchQuery,
+  List<String>? statusFilters, 
+}) async {
+  try {
+    var query = _supabase
+        .from('Raise_complaint')
+        .select('*, complaint_technicians(technician_id, technician_name)');
 
-Future<List<ComplaintModel>> fetchComplaints() async {
-  final data = await _supabase
-      .from('Raise_complaint')
-      .select('*, complaint_technicians(technician_id, technician_name)')
-      .order('created_at', ascending: false);
+    final q = searchQuery?.trim() ?? '';
+    if (q.isNotEmpty) {
+      query = query.or(
+        'tickectid.ilike.%$q%,'
+        'Category_name.ilike.%$q%,'
+        'service_required.ilike.%$q%,'
+        'problem.ilike.%$q%',
+      );
+    }
 
-  return (data as List)
-      .map((e) => ComplaintModel.fromJson(e as Map<String, dynamic>))
-      .toList();
+    if (statusFilters != null && statusFilters.isNotEmpty) {
+      final clause = statusFilters.map((s) => 'complaint_status.ilike.$s').join(',');
+      query = query.or(clause);
+    }
+
+    final data = await query
+        .order('created_at', ascending: false)
+        .range(page * pageSize, page * pageSize + pageSize - 1);
+
+    return (data as List)
+        .map((e) => ComplaintModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  } catch (e) {
+    throw Exception('Failed to load complaints: $e');
+  }
 }
   //=====================Count technician=======================
 Future<Map<String, dynamic>> getTechnicianStats({String? technicianId}) async {
-  final technicians = await _supabase.from('technician').select('id');
-  final available = await _supabase.from('Raise_complaint').select('technician_id').eq('tech_status', 'Pending');
-  final activeJobs = await _supabase.from('Raise_complaint').select('technician_id').eq('tech_status', 'Assigned');
-  var query = _supabase.from('service_ratings').select('rating');
-  
-  if (technicianId != null && technicianId.isNotEmpty) {
-    query = query.eq('technician_id', technicianId);
+  try {
+    final result = await _supabase.rpc('get_technician_stats');
+    return Map<String, dynamic>.from(result as Map);
+  } catch (e) {
+    throw Exception('Failed to load technician stats: $e');
   }
-
-  final List<dynamic> ratings = await query; 
-  double avgRating = 0.0;
-  if (ratings.isNotEmpty) {
-    final validRatings = ratings.where((item) => item['rating'] != null);    
-    if (validRatings.isNotEmpty) {
-      final totalSum = validRatings.fold<num>(0, (sum, item) => sum + (item['rating'] as num));
-      avgRating = totalSum / validRatings.length;
-    }
-  }
-  return {
-    'total': technicians.length,
-    'available': available.length,
-    'activeJobs': activeJobs.length,
-    'avgRating': avgRating.toStringAsFixed(1),
-  };
 }
   //===================Register customer==================================
 
@@ -170,30 +178,49 @@ Future<Map<String, dynamic>> getTechnicianStats({String? technicianId}) async {
   }
 
   //========================Fetch customer================================
-  Future<List<CustomerModel>> fetchcustomer() async {
-  final response = await Supabase.instance.client
-      .from('customer')
-      .select(
-        'id, cust_name, cust_phno, cust_location, cust_place, cust_hotelname, total_equipment, revenue_ytd, Raise_complaint(id, service_required)',
+Future<List<CustomerModel>> fetchcustomer({
+  int page = 0,
+  int pageSize = 10,
+  String? searchQuery,
+}) async {
+  try {
+    var query = Supabase.instance.client
+        .from('customer')
+        .select(
+          'id, cust_name, cust_phno, cust_location, cust_place, cust_hotelname, total_equipment, revenue_ytd, Raise_complaint(id, service_required)',
+        );
+
+    final q = searchQuery?.trim() ?? '';
+    if (q.isNotEmpty) {
+      query = query.or(
+        'cust_name.ilike.%$q%,'
+        'cust_phno.ilike.%$q%,'
+        'cust_location.ilike.%$q%,'
+        'cust_place.ilike.%$q%,'
+        'cust_hotelname.ilike.%$q%',
       );
+    }
 
-  return response.map<CustomerModel>((e) {
-    final complaints = e['Raise_complaint'] as List? ?? [];
+    final response = await query.range(page * pageSize, page * pageSize + pageSize - 1);
 
-    final equipmentCount = complaints
-        .map((r) => r['service_required']?.toString().trim() ?? '')
-        .where((s) => s.isNotEmpty)
-        .toSet()
-        .length;
+    return response.map<CustomerModel>((e) {
+      final complaints = e['Raise_complaint'] as List? ?? [];
+      final equipmentCount = complaints
+          .map((r) => r['service_required']?.toString().trim() ?? '')
+          .where((s) => s.isNotEmpty)
+          .toSet()
+          .length;
 
-    return CustomerModel.fromMap({
-      ...e,
-      'complaint_count': complaints.length,
-      'equipment_count': equipmentCount,
-    });
-  }).toList();
+      return CustomerModel.fromMap({
+        ...e,
+        'complaint_count': complaints.length,
+        'equipment_count': equipmentCount,
+      });
+    }).toList();
+  } catch (e) {
+    throw Exception('Failed to load customers: $e');
+  }
 }
-
 //=======================Updated technician=======================
   Future<void> updatetechnician(TechModel technician) async {
     await _supabase
@@ -222,62 +249,54 @@ Future<Map<String, dynamic>> getTechnicianStats({String? technicianId}) async {
 
 
 //==============================Get technician KPi box count==================================
- Future<Map<String, dynamic>> getActiveComplaintCount(String technicianId) async {
+Future<Map<String, dynamic>> getActiveComplaintCount(String technicianId) async {
+  final techId = int.tryParse(technicianId);
+
+  if (techId == null) {
+    return {
+      'activeJobs': 0,
+      'jobsToday': 0,
+    };
+  }
+
   final today = DateTime.now();
-  final startOfDay = DateTime(today.year, today.month, today.day).toIso8601String();
-  final endOfDay = DateTime(today.year, today.month, today.day + 1).toIso8601String();
 
-  final results = await Future.wait([
-    // Active jobs
-    _supabase.from('Raise_complaint')
-        .select('id')
-        .eq('technician_id', technicianId) // Ensure this column name matches your DB exactly
-        .eq('tech_status', 'Assigned'),
+  final startOfDay = DateTime(
+    today.year,
+    today.month,
+    today.day,
+  ).toIso8601String();
 
-    // Jobs today - Using range to handle time-stamped dates
+  final endOfDay = DateTime(
+    today.year,
+    today.month,
+    today.day + 1,
+  ).toIso8601String();
 
-   _supabase .from('Raise_complaint')
-    .select('id')
-    .eq('technician_id', int.parse(technicianId))
-    .eq('tech_status', 'Assigned')
-    .gte('created_at', startOfDay)
-    .lt('created_at', endOfDay),
+  final activeJobsRes = await _supabase
+      .from('Raise_complaint')
+      .select('id')
+      .eq('technician_id', techId)
+      .eq('tech_status', 'Assigned');
 
-    // Ratings
-   _supabase
-        .from('service_ratings')
-        .select('rating')
-        .eq('technician_id', 'TECH-$technicianId')
-        .not('rating', 'is', null),
-  
-      
-  ]);
-
-    final activeJobs = (results[0] as List).length;
-  final jobsToday = (results[1] as List).length;
-  final ratings = results[2] as List;
-
-  final avgRating = ratings.isEmpty
-      ? 0.0
-      : ratings.fold<double>(
-            0,
-            (sum, r) => sum + ((r['rating'] as num?)?.toDouble() ?? 0),
-          ) /
-          ratings.length;
+  final jobsTodayRes = await _supabase
+      .from('Raise_complaint')
+      .select('id')
+      .eq('technician_id', techId)
+      .eq('tech_status', 'Assigned')
+      .gte('created_at', startOfDay)
+      .lt('created_at', endOfDay);
 
   return {
-    'activeJobs': activeJobs,
-    'jobsToday': jobsToday,
-    'rating': avgRating, 
-    'totalRatings': ratings.length,
+    'activeJobs': activeJobsRes.length,
+    'jobsToday': jobsTodayRes.length,
   };
 }
-
 Future<double> getratings(String technicianId) async {
   final response = await _supabase
       .from('service_ratings')
       .select('rating')
-      .eq('technician_id', technicianId)
+    .eq('technician_id', technicianId)
       .not('rating', 'is', null);
 
   final ratings = response as List;
@@ -293,66 +312,13 @@ Future<double> getratings(String technicianId) async {
 
   //=================================Get dashboard count==============================================
 Future<Map<String, dynamic>> fetchDashboardStats(String technicianId) async {
-  final todayStart = DateTime.now().toLocal();
-  final todayOnly = DateTime(todayStart.year, todayStart.month, todayStart.day);
-  final yesterdayOnly = todayOnly.subtract(const Duration(days: 1));
-
-  final raw = await _supabase
-      .from('Raise_complaint')
-      .select('id, complaint_status, created_at, technician_id');
-
-  final all = (raw as List).cast<Map<String, dynamic>>();
-
-  int activeToday = 0, activeYesterday = 0;
-  int completedToday = 0, completedYesterday = 0;
-  int totalPending = 0, totalCompleted = 0;
-  final activeTechIds = <dynamic>{};
-  final allTechIds = <dynamic>{};
-
-  for (final c in all) {
-    final status = c['complaint_status'];
-    final techId = c['technician_id'];
-    final date = DateTime.tryParse(c['created_at']?.toString() ?? '')?.toLocal();
-    final isToday = date != null && !date.isBefore(todayOnly);
-    final isYesterday = date != null &&
-        date.isAfter(yesterdayOnly) &&
-        date.isBefore(todayOnly);
-
-    if (status == 'pending') {
-      totalPending++;
-      activeToday++;
-      if (isYesterday) activeYesterday++;
-      if (techId != null) activeTechIds.add(techId);
-    }
-
-    if (status == 'Completed') {
-      totalCompleted++;
-      if (isToday) completedToday++;
-      if (isYesterday) completedYesterday++;
-    }
-
-    if (techId != null) allTechIds.add(techId);
+  try {
+    final result = await _supabase.rpc('get_dashboard_stats');
+    return Map<String, dynamic>.from(result as Map);
+  } catch (e) {
+    throw Exception('Failed to load dashboard stats: $e');
   }
-
-  final offlineTechIds = allTechIds.difference(activeTechIds);
-
-  return {
-    'activeComplaints': activeToday,
-    'completedToday': completedToday,
-    'pendingComplaints': totalPending,
-    'completedComplaints': totalCompleted,
-    'activeTechnicians': activeTechIds.length,
-    'offlineTechnicians': offlineTechIds.length,
-    'complaintTrend': _trend(activeToday, activeYesterday),
-    'completedTrend': _trend(completedToday, completedYesterday),
-  };
 }
-
-double _trend(int todayCount, int yesterdayCount) {
-  if (yesterdayCount == 0) return 0;
-  return ((todayCount - yesterdayCount) / yesterdayCount) * 100;
-}
-
 
 //=======================save technician to the auth and technician tabel============================================
   Future<void> registerTechnicianWithAuth({
@@ -389,52 +355,13 @@ double _trend(int todayCount, int yesterdayCount) {
   }
   //============================Fetch customer stats=========================
 Future<Map<String, dynamic>> fetchCustomerStats() async {
-  final results = await Future.wait([
-    _supabase.from('customer').select('total_equipment, created_at'),
-    _supabase
-        .from('Raise_complaint')
-        .select('service_required')
-        .not('service_required', 'is', null),
-  ]);
-
-  final all = results[0] as List;
-  final complaints = results[1] as List;
-
-  final totalCustomers = all.length;
-
-  
-  final now = DateTime.now();
-  final thisMonthStart = DateTime(now.year, now.month, 1);
-  final thisMonthCount = all.where((c) {
-    final created = DateTime.tryParse(c['created_at']?.toString() ?? '');
-    return created != null && created.isAfter(thisMonthStart);
-  }).length;
-
-  final totalEquipment = all.fold<int>(
-    0,
-    (sum, c) => sum + ((c['total_equipment'] as num?)?.toInt() ?? 0),
-  );
-  final totalServiceEquipment = complaints.length;
-
- 
- final distinctEquipmentTypes = complaints
-    .map((c) {
-      final raw = c['service_required']?.toString().trim() ?? '';
-      return raw.contains(' - ') ? raw.split(' - ').first.trim() : raw;
-    })
-    .where((s) => s.isNotEmpty)
-    .toSet();
-
-  return {
-    'totalCustomers': totalCustomers,
-    'thisMonthCount': thisMonthCount,
-    'totalEquipment': totalEquipment,
-    'totalServiceEquipment': totalServiceEquipment,      
-    'distinctEquipmentTypes': distinctEquipmentTypes,     
-    'distinctEquipmentCount': distinctEquipmentTypes.length,
-  };
+  try {
+    final result = await _supabase.rpc('get_customer_stats');
+    return Map<String, dynamic>.from(result as Map);
+  } catch (e) {
+    throw Exception('Failed to load customer stats: $e');
+  }
 }
-
 //=================================Save Complaint from webapp====================================
 Future<void> savecomplaints({
   required String categoryName,

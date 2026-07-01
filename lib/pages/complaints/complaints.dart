@@ -1,7 +1,6 @@
 import 'dart:math';
 import 'package:field_star/navigation/primaryscaffold.dart';
 import 'package:field_star/pages/complaints/complaint_tabel.dart';
-import 'package:field_star/pages/complaints/otp_tickectId_screenPage.dart';
 import 'package:field_star/repository/technician_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -20,22 +19,26 @@ class _ComplaintsState extends State<Complaints> {
   final TextEditingController problemdescription = TextEditingController();
   final TextEditingController servicerequired = TextEditingController();
   late Future<List<dynamic>> _complaintFuture;
-  
   final TextEditingController priority = TextEditingController();
   final TextEditingController ticketIdCtrl = TextEditingController();
   final TextEditingController otp = TextEditingController();
+
   String servicetype = '';
   String prioritystatus = 'Medium';
   bool isCheckedjobcard = false;
   bool isCheckedfieldservice = false;
   final _repository = TechnicianRepository();
   bool _isLoading = false;
+
   @override
   void dispose() {
     _searchController.dispose();
     ticketIdCtrl.dispose();
+    categoryname.dispose();
+    problemdescription.dispose();
+    servicerequired.dispose();
+    priority.dispose();
     otp.dispose();
-
     super.dispose();
   }
 
@@ -50,6 +53,7 @@ class _ComplaintsState extends State<Complaints> {
   void _refresh() => setState(() {
     _complaintFuture = _repository.fetchComplaints();
   });
+  
   @override
   Widget build(BuildContext context) {
     return sidebar(
@@ -167,7 +171,7 @@ class _ComplaintsState extends State<Complaints> {
       ),
     );
   }
-
+//==============================Add technician dialog=========================================
   void _showRegisterTechnicianDialog(BuildContext context) {
     showDialog(
       context: context,

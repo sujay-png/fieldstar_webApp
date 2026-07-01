@@ -5,7 +5,7 @@ class AssignedTechnician {
 
   factory AssignedTechnician.fromJson(Map<String, dynamic> json) {
     return AssignedTechnician(
-      id: json['technician_id'] as int,
+    id: (json['technician_id'] as num?)?.toInt() ?? 0,
       name: json['technician_name'] ?? '',
     );
   }

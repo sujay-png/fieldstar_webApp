@@ -45,6 +45,8 @@ class RecentComplaintsTable extends StatefulWidget {
 }
 
 class _RecentComplaintsTableState extends State<RecentComplaintsTable> {
+  final int _pageSize = 10;
+  int _currentPage = 0;
   final _repo = TechnicianRepository();
   late Future<List<ComplaintModel>> _complaintsFuture;
 
@@ -54,38 +56,58 @@ class _RecentComplaintsTableState extends State<RecentComplaintsTable> {
   @override
   void initState() {
     super.initState();
-    _complaintsFuture = _repo.fetchComplaints();
+    _loadPage();
   }
 
-  void _refresh() => setState(() {
-    _complaintsFuture = _repo.fetchComplaints();
-  });
+  void _loadPage() {
+    final statusValues = _activeFilters
+        .map((s) {
+          switch (s) {
+            case ComplaintStatus.pending:
+              return 'pending';
+            case ComplaintStatus.completed:
+              return 'Completed';
+            default:
+              return '';
+          }
+        })
+        .where((s) => s.isNotEmpty)
+        .toList();
 
-  List<ComplaintModel> _applySearch(List<ComplaintModel> all) {
-    var result = all;
+    _complaintsFuture = _repo.fetchComplaints(
+      page: _currentPage,
+      pageSize: _pageSize,
+      searchQuery: widget.searchQuery,
+      statusFilters: statusValues,
+    );
+  }
 
-    // Apply status filter
-    if (_activeFilters.isNotEmpty) {
-      result = result
-          .where((c) => _activeFilters.contains(_mapStatus(c.complaintstatus)))
-          .toList();
+  @override
+  void didUpdateWidget(covariant RecentComplaintsTable oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.searchQuery != widget.searchQuery) {
+      setState(() {
+        _currentPage = 0;
+        _loadPage();
+      });
     }
+  }
 
-    // Apply search query
-    if (widget.searchQuery.isNotEmpty) {
-      final q = widget.searchQuery.toLowerCase();
-      result = result
-          .where(
-            (c) =>
-                c.ticketId.toLowerCase().contains(q) ||
-                (c.categoryName?.toLowerCase().contains(q) ?? false) ||
-                (c.serviceRequired?.toLowerCase().contains(q) ?? false) ||
-                (c.problem?.toLowerCase().contains(q) ?? false),
-          )
-          .toList();
-    }
+  void _refresh() => setState(_loadPage);
+  void _nextPage() {
+    setState(() {
+      _currentPage++;
+      _loadPage();
+    });
+  }
 
-    return result;
+  void _previousPage() {
+    if (_currentPage == 0) return;
+
+    setState(() {
+      _currentPage--;
+      _loadPage();
+    });
   }
 
   // ── Filter chip config ────────────────────────────────────────
@@ -103,7 +125,7 @@ class _RecentComplaintsTableState extends State<RecentComplaintsTable> {
       bg: Color(0xFFD4F5E2),
     ),
   ];
-
+//=========================================Filter chips for complete status=========================================
   Widget _buildFilterChips() {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -118,6 +140,8 @@ class _RecentComplaintsTableState extends State<RecentComplaintsTable> {
                 isActive
                     ? _activeFilters.remove(opt.status)
                     : _activeFilters.add(opt.status);
+                _currentPage = 0;
+                _loadPage();
               }),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
@@ -241,6 +265,7 @@ class _RecentComplaintsTableState extends State<RecentComplaintsTable> {
 
   @override
   Widget build(BuildContext context) {
+//==============================Fetching complaints data from the repository and displaying it in a DataTable with pagination and filtering==============================
     return FutureBuilder<List<ComplaintModel>>(
       future: _complaintsFuture,
       builder: (context, snapshot) {
@@ -282,7 +307,7 @@ class _RecentComplaintsTableState extends State<RecentComplaintsTable> {
           );
         }
 
-        final rows = _applySearch(snapshot.data ?? []);
+        final rows = snapshot.data ?? [];
 
         return Container(
           width: double.infinity,
@@ -308,10 +333,14 @@ class _RecentComplaintsTableState extends State<RecentComplaintsTable> {
                         color: Color(0xFF0F172A),
                       ),
                     ),
-                    // ── Clear filters button (visible only when active) ──
+
                     if (_activeFilters.isNotEmpty)
                       TextButton(
-                        onPressed: () => setState(() => _activeFilters.clear()),
+                        onPressed: () => setState(() {
+                          _activeFilters.clear();
+                          _currentPage = 0;
+                          _loadPage();
+                        }),
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           minimumSize: Size.zero,
@@ -422,13 +451,41 @@ class _RecentComplaintsTableState extends State<RecentComplaintsTable> {
                     ),
                   ),
                 ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      'Page ${_currentPage + 1}',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+
+                    OutlinedButton(
+                      onPressed: _currentPage == 0 ? null : _previousPage,
+                      child: const Text('Previous'),
+                    ),
+
+                    const SizedBox(width: 8),
+
+                    OutlinedButton(
+                      onPressed: rows.length < _pageSize ? null : _nextPage,
+                      child: const Text('Next'),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         );
       },
     );
   }
-
+//=========================================Complaint details form dialog=========================================
   void _showcomplaintform(BuildContext context, ComplaintModel c) {
     final formKey = GlobalKey<FormState>();
     showDialog(
@@ -538,7 +595,7 @@ class _RecentComplaintsTableState extends State<RecentComplaintsTable> {
       ),
     );
   }
-
+//=============================Helper widget to display a label and value with an icon in the complaint details dialog=============================
   Widget _editField(String label, String value, IconData icon) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [

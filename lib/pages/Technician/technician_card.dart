@@ -45,6 +45,8 @@ class TechnicianCard extends StatefulWidget {
 }
 
 class _TechnicianCardState extends State<TechnicianCard> {
+
+
   final database = TechnicianRepository();
   @override
   Widget build(BuildContext context) {
@@ -68,7 +70,7 @@ class _TechnicianCardState extends State<TechnicianCard> {
                   CircleAvatar(
                     backgroundColor: const Color(0xFF2563EB),
                     child: Text(
-                      widget.name.split(' ').map((e) => e[0]).join(),
+                    _getInitials(widget.name),
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -376,7 +378,7 @@ class _TechnicianCardState extends State<TechnicianCard> {
       },
     );
   }
-
+//=============================== Helper method to build a labeled text field with a controller and hint text===============================
   Widget _buildField(
     String label,
     String hint,
@@ -409,4 +411,16 @@ class _TechnicianCardState extends State<TechnicianCard> {
       ],
     );
   }
+
+  //=============================== Helper method to get initials from a full name===============================
+    String _getInitials(String name) {
+  final words = name.trim().split(' ').where((w) => w.isNotEmpty).toList();
+  if (words.isEmpty) return '?';
+  if (words.length == 1) {
+    return words.first.length >= 2
+        ? words.first.substring(0, 2).toUpperCase()
+        : words.first[0].toUpperCase();
+  }
+  return '${words.first[0]}${words.last[0]}'.toUpperCase();
+}
 }

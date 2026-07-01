@@ -13,6 +13,7 @@ class Customer extends StatefulWidget {
 }
 
 class _CustomerState extends State<Customer> {
+  late Future<Map<String, dynamic>> _custFuture;
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _placeController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
@@ -24,14 +25,28 @@ class _CustomerState extends State<Customer> {
   final TextEditingController _hotelName = TextEditingController();
   final _repository = TechnicianRepository();
 
- 
+ final int _pageSize = 10;
+  int _currentPage = 0;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
   @override
   void dispose() {
     _searchController.dispose();
+    _nameController.dispose();
+    _placeController.dispose();
+    _phoneController.dispose();
+    _locationController.dispose();
+    _equipmentController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _hotelName.dispose();
 
     super.dispose();
+  }
+  @override
+  void initState() {
+    super.initState();
+    _custFuture = _repository.fetchCustomerStats();
   }
 
   @override
@@ -87,7 +102,7 @@ class _CustomerState extends State<Customer> {
 //============================fetch kipbox count================================
             const SizedBox(height: 15),
             FutureBuilder<Map<String, dynamic>>(
-              future: _repository.fetchCustomerStats(),
+              future: _custFuture,
               builder: (context, snapshot) {
                 final totalCustomers =
                     ((snapshot.data?['totalCustomers']) as num?)?.toInt() ?? 0;

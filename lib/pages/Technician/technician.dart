@@ -4,6 +4,7 @@ import 'package:field_star/model/tech_model.dart';
 import 'package:field_star/navigation/primaryscaffold.dart';
 import 'package:field_star/repository/technician_repository.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class Technician extends StatefulWidget {
   const Technician({super.key});
@@ -16,6 +17,7 @@ class _TechnicianState extends State<Technician> {
   final _repository = TechnicianRepository();
   bool _isLoading = false;
   late Future<List<TechModel>> _techFuture;
+  late Future<Map<String, dynamic>> _statsFuture;
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
@@ -28,13 +30,28 @@ class _TechnicianState extends State<Technician> {
   @override
   void dispose() {
     _searchController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _nameController.dispose();
+    _idController.dispose();
+    _phoneController.dispose();
+    _locationController.dispose();
+    _specializationController.dispose();
 
     super.dispose();
   }
 
   void _refresh() => setState(() {
     _techFuture = _repository.fetchTechnicians();
+    _statsFuture = _repository.getTechnicianStats();
   });
+  @override
+  void initState() {
+    super.initState();
+    _techFuture = _repository.fetchTechnicians();
+    _statsFuture = _repository.getTechnicianStats();
+  }
+
   @override
   Widget build(BuildContext context) {
     return sidebar(
@@ -92,8 +109,9 @@ class _TechnicianState extends State<Technician> {
               SizedBox(height: 16),
 
               const SizedBox(height: 12),
+//=============================== Fetching technician statistics and displaying them in cards =========================================
               FutureBuilder<Map>(
-                future: _repository.getTechnicianStats(),
+                future: _statsFuture,
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) {
                     return const CircularProgressIndicator();
@@ -193,27 +211,40 @@ class _TechnicianState extends State<Technician> {
                               if (tech.id == null || tech.id!.isEmpty) {
                                 return const SizedBox();
                               }
+//========================get ratings================================
+                              return FutureBuilder<List<dynamic>>(
+                                future: Future.wait([
+                                  _repository.getActiveComplaintCount(
+                                    tech.id.toString(),
+                                  ),
+                                  _repository.getratings(tech.techId),
+                                ]),
+                                builder: (context, snapshot) {
+                                  if (snapshot.connectionState ==
+                                      ConnectionState.waiting) {
+                                    return const Center(
+                                      child: CircularProgressIndicator(),
+                                    );
+                                  }
 
-                              return FutureBuilder<Map<String, dynamic>>(
-                                future: _repository.getActiveComplaintCount(
-                                  tech.id!,
-                                ),
-                                builder: (context, complaintSnapshot) {
-                                  final activeJobs =
-                                      (complaintSnapshot.data?['activeJobs']
-                                              as num?)
-                                          ?.toInt() ??
-                                      0;
-                                  final jobsToday =
-                                      (complaintSnapshot.data?['jobsToday']
-                                              as num?)
-                                          ?.toInt() ??
-                                      0;
+                                  final complaintData =
+                                      snapshot.data?[0]
+                                          as Map<String, dynamic>? ??
+                                      {};
+
                                   final rating =
-                                      (complaintSnapshot.data?['rating']
-                                              as num?)
-                                          ?.toDouble() ??
-                                      0.0;
+                                      snapshot.data?[1] as double? ?? 0.0;
+
+                                  final activeJobs =
+                                      (complaintData['activeJobs'] as num?)
+                                          ?.toInt() ??
+                                      0;
+
+                                  final jobsToday =
+                                      (complaintData['jobsToday'] as num?)
+                                          ?.toInt() ??
+                                      0;
+
                                   final isBusy = activeJobs > 0;
 
                                   return TechnicianCard(

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 class CustomersTable extends StatefulWidget {
   final String searchQuery;
+
   const CustomersTable({super.key, this.searchQuery = ''});
 
   @override
@@ -13,19 +14,59 @@ class CustomersTable extends StatefulWidget {
 class _CustomersTableState extends State<CustomersTable> {
   final _repo = TechnicianRepository();
   late Future<List<CustomerModel>> _customerFuture;
+  final int _pageSize = 10;
+  int _currentPage = 0;
 
   @override
   void initState() {
     super.initState();
-    _customerFuture = _repo.fetchcustomer();
+    _loadPage();
+  
   }
 
- void _refresh() {
-  setState(() {
-    _customerFuture = _repo.fetchcustomer(); 
-  });
+  void _refresh() {
+    setState(() {
+      _customerFuture = _repo.fetchcustomer(
+        page: _currentPage,
+        pageSize: _pageSize,
+      );
+    });
+  }
+
+  void _loadPage() {
+    _customerFuture = _repo.fetchcustomer(
+      page: _currentPage,
+      pageSize: _pageSize,
+      searchQuery: widget.searchQuery,
+    );
+  }
+@override
+void didUpdateWidget(covariant CustomersTable oldWidget) {
+  super.didUpdateWidget(oldWidget);
+  if (oldWidget.searchQuery != widget.searchQuery) {
+    setState(() {
+      _currentPage = 0; 
+      _loadPage();
+    });
+  }
 }
-//===========================Search bar function================================
+  void _nextPage() {
+    setState(() {
+      _currentPage++;
+      _loadPage();
+    });
+  }
+
+  void _previousPage() {
+    if (_currentPage == 0) return;
+
+    setState(() {
+      _currentPage--;
+      _loadPage();
+    });
+  }
+
+  //===========================Search bar function================================
   List<CustomerModel> _applySearch(List<CustomerModel> all) {
     if (widget.searchQuery.isEmpty) return all;
     final q = widget.searchQuery.toLowerCase();
@@ -329,6 +370,34 @@ class _CustomersTableState extends State<CustomersTable> {
                     ),
                   ),
                 ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      'Page ${_currentPage + 1}',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+
+                    OutlinedButton(
+                      onPressed: _currentPage == 0 ? null : _previousPage,
+                      child: const Text('Previous'),
+                    ),
+
+                    const SizedBox(width: 8),
+
+                    OutlinedButton(
+                      onPressed: rows.length < _pageSize ? null : _nextPage,
+                      child: const Text('Next'),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         );
@@ -460,7 +529,7 @@ class _CustomersTableState extends State<CustomersTable> {
                             ),
                           ),
                           const SizedBox(width: 12),
-//==================edit customer==================================================
+                          //==================edit customer==================================================
                           Expanded(
                             child: ElevatedButton(
                               onPressed: saving
@@ -482,8 +551,8 @@ class _CustomersTableState extends State<CustomersTable> {
                                           hotelName: hotelCtrl.text.trim(),
                                           location: locationCtrl.text.trim(),
                                         );
-                                        if (ctx.mounted) Navigator.pop(ctx); 
-                                    _refresh();
+                                        if (ctx.mounted) Navigator.pop(ctx);
+                                        _refresh();
                                         messenger.showSnackBar(
                                           const SnackBar(
                                             content: Text('Customer updated'),
@@ -623,7 +692,7 @@ class _CustomersTableState extends State<CustomersTable> {
                           ),
                         ),
                         const SizedBox(width: 12),
-//=====================Delete customer=================================
+                        //=====================Delete customer=================================
                         Expanded(
                           child: ElevatedButton(
                             onPressed: deleting
@@ -637,8 +706,11 @@ class _CustomersTableState extends State<CustomersTable> {
                                     setLocal(() => deleting = true);
                                     try {
                                       await _repo.deleteCustomer(id: c.id);
-                                       if (ctx.mounted) Navigator.pop(ctx); // ← ctx, with mounted check
-                                    _refresh();
+                                      if (ctx.mounted)
+                                        Navigator.pop(
+                                          ctx,
+                                        ); // ← ctx, with mounted check
+                                      _refresh();
 
                                       messenger.showSnackBar(
                                         SnackBar(

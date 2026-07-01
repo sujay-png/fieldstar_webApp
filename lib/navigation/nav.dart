@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:field_star/Analytics/analytics.dart';
+import 'package:field_star/pages/Analytics/analytics.dart';
 import 'package:field_star/navigation/shellPage.dart';
 import 'package:field_star/pages/Technician/technician.dart';
 import 'package:field_star/pages/auth/login.dart';

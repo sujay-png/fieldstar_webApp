@@ -26,7 +26,6 @@ class TechnicianOption {
 
 class AssignTechnicianDialog extends StatefulWidget {
   final String ticketId;
-  // ← changed: now passes a List instead of a single item
   final Future<void> Function(List<TechnicianOption> selected) onAssign;
 
   const AssignTechnicianDialog({
@@ -40,9 +39,9 @@ class AssignTechnicianDialog extends StatefulWidget {
 }
 
 class _AssignTechnicianDialogState extends State<AssignTechnicianDialog> {
+  
   final Set<String> _selectedIds = {};
   final Map<String, TechnicianOption> _selectedOptions = {};
-
   late Future<List<TechModel>> _techFuture;
   final TechnicianRepository _repo = TechnicianRepository();
   bool _isAssigning = false;
@@ -54,7 +53,11 @@ class _AssignTechnicianDialogState extends State<AssignTechnicianDialog> {
     super.initState();
     _techFuture = _repo.fetchTechnicians();
   }
-
+@override
+void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
   List<TechModel> _applySearch(List<TechModel> all) {
     if (_searchQuery.isEmpty) return all;
     final q = _searchQuery.toLowerCase();
