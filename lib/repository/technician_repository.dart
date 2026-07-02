@@ -83,7 +83,9 @@ class TechnicianRepository {
 
     await _supabase
         .from('Raise_complaint')
-        .update({'tech_status': 'Assigned'})
+        .update({'tech_status': 'Assigned',
+        'technician_id': technicianId,
+          'technician_name': technicianName,})
         .eq('id', complaintId);
   } catch (e) {
     rethrow;
